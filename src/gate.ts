@@ -81,7 +81,7 @@ function hasNpmTestScript(root: string): boolean {
   const path = join(resolve(root), "package.json");
   if (!existsSync(path)) return false;
   try {
-    const pkg = JSON.parse(readFileSync(path, "utf8"));
+    const pkg = JSON.parse(readFileSync(path, "utf8").replace(/^\uFEFF/, ""));
     const scripts = pkg && typeof pkg === "object" ? (pkg as Record<string, unknown>).scripts : undefined;
     return Boolean(scripts && typeof scripts === "object" && typeof (scripts as Record<string, unknown>).test === "string");
   } catch {

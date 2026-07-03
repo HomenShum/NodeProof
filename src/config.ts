@@ -52,7 +52,7 @@ export function readConfig(root: string): ProofloopConfig | undefined {
   if (!existsSync(path)) return undefined;
   let parsed: unknown;
   try {
-    parsed = JSON.parse(readFileSync(path, "utf8"));
+    parsed = JSON.parse(readFileSync(path, "utf8").replace(/^\uFEFF/, ""));
   } catch (error) {
     throw new Error(`proofloop.config.json is not valid JSON (${path}): ${error instanceof Error ? error.message : String(error)}`);
   }

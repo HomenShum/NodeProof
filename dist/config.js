@@ -43,7 +43,7 @@ function readConfig(root) {
         return undefined;
     let parsed;
     try {
-        parsed = JSON.parse((0, node_fs_1.readFileSync)(path, "utf8"));
+        parsed = JSON.parse((0, node_fs_1.readFileSync)(path, "utf8").replace(/^\uFEFF/, ""));
     }
     catch (error) {
         throw new Error(`proofloop.config.json is not valid JSON (${path}): ${error instanceof Error ? error.message : String(error)}`);

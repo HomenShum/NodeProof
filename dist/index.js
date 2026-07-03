@@ -31,5 +31,7 @@ __exportStar(require("./proofloopHooks"), exports);
 __exportStar(require("./proofloopCi"), exports);
 __exportStar(require("./proofloopToolUse"), exports);
 __exportStar(require("./scaffoldConstants"), exports);
+__exportStar(require("./project"), exports);
+__exportStar(require("./mcp"), exports);
 var cli_1 = require("./cli");
 Object.defineProperty(exports, "runCli", { enumerable: true, get: function () { return cli_1.runCli; } });

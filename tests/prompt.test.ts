@@ -1,9 +1,7 @@
 /**
  * The kickoff prompt (`proofloop prompt`) may reference ONLY commands this
  * package actually implements. This test grep-asserts that every
- * `proofloop <cmd>` mentioned in the prompt is a real command -- the honesty
- * gate that keeps the portable core from advertising the noderoom reference
- * implementation's goal/supervise/run/resume commands it does not ship.
+ * `proofloop <cmd>` mentioned in the prompt is a real command.
  */
 import { describe, expect, it } from "vitest";
 import { proofloopKickoffPrompt, PACKAGE_COMMANDS } from "../src/prompt";
@@ -24,10 +22,12 @@ describe("proofloop prompt honesty", () => {
     expect(prompt).toContain("proofloop init");
     expect(prompt).toContain("proofloop gate");
     expect(prompt).toContain("proofloop hooks install");
+    expect(prompt).toContain("proofloop manifest");
+    expect(prompt).toContain("proofloop mcp");
     // It must NOT reference the noderoom-only commands this package does not ship.
     expect(prompt).not.toContain("proofloop supervise");
     expect(prompt).not.toContain("proofloop goal");
     expect(prompt).not.toContain("proofloop run ");
-    expect(prompt.split("\n").length).toBeLessThanOrEqual(25);
+    expect(prompt.split("\n").length).toBeLessThanOrEqual(28);
   });
 });

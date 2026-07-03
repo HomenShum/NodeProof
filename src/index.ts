@@ -14,4 +14,6 @@ export * from "./proofloopHooks";
 export * from "./proofloopCi";
 export * from "./proofloopToolUse";
 export * from "./scaffoldConstants";
+export * from "./project";
+export * from "./mcp";
 export { runCli } from "./cli";

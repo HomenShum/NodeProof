@@ -30,13 +30,17 @@ function runThisRepo(options) {
     log("--- Step 2: config ---");
     if (!(0, config_1.configExists)(root)) {
         log("No proofloop.config.json found -- running `proofloop init` for you:");
-        (0, init_1.runInit)({ root, log });
+        (0, init_1.runInit)({ root, log, agent: "auto", live: options.live === true });
     }
     else {
         log("proofloop.config.json already present.");
         const config = (0, config_1.readConfig)(root);
         if (config && config.gate.checks.length === 0) {
             log("NOTE: gate.checks is empty. Add real checks so `proofloop gate` proves the app actually works.");
+        }
+        if (options.live) {
+            log("Refreshing live Proof Loop scaffold:");
+            (0, init_1.runInit)({ root, log, agent: "auto", live: true });
         }
     }
     log("");

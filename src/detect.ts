@@ -22,7 +22,7 @@ function readPackageJson(root: string): Record<string, unknown> | undefined {
   const path = join(resolve(root), "package.json");
   if (!existsSync(path)) return undefined;
   try {
-    const parsed = JSON.parse(readFileSync(path, "utf8"));
+    const parsed = JSON.parse(readFileSync(path, "utf8").replace(/^\uFEFF/, ""));
     return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : undefined;
   } catch {
     return undefined;

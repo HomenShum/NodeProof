@@ -24,7 +24,7 @@ function readPackageJson(root) {
     if (!(0, node_fs_1.existsSync)(path))
         return undefined;
     try {
-        const parsed = JSON.parse((0, node_fs_1.readFileSync)(path, "utf8"));
+        const parsed = JSON.parse((0, node_fs_1.readFileSync)(path, "utf8").replace(/^\uFEFF/, ""));
         return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : undefined;
     }
     catch {

@@ -73,6 +73,16 @@ describe("proofloop init", () => {
     expect(runInit({ root, ...silent })).toBe(0);
     expect(readConfig(root)?.gate.checks).toHaveLength(1);
   });
+
+  it("reads PowerShell UTF-8 BOM JSON config files", () => {
+    const root = tempRoot();
+    writeFileSync(
+      join(root, "proofloop.config.json"),
+      `\uFEFF${JSON.stringify({ app: "generic web app", workflow: "", gate: { checks: [] }, immutable: [] }, null, 2)}\n`,
+      "utf8",
+    );
+    expect(readConfig(root)?.app).toBe("generic web app");
+  });
 });
 
 describe("proofloop gate", () => {

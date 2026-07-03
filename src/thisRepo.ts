@@ -20,7 +20,7 @@ export type ThisRepoIo = {
 };
 
 /** Exit 0 always (this is a guided setup, not a gate). */
-export function runThisRepo(options: { root: string; goal?: string } & ThisRepoIo): 0 {
+export function runThisRepo(options: { root: string; goal?: string; live?: boolean } & ThisRepoIo): 0 {
   const root = resolve(options.root);
   const log = options.log ?? console.log;
 
@@ -36,12 +36,16 @@ export function runThisRepo(options: { root: string; goal?: string } & ThisRepoI
   log("--- Step 2: config ---");
   if (!configExists(root)) {
     log("No proofloop.config.json found -- running `proofloop init` for you:");
-    runInit({ root, log });
+    runInit({ root, log, agent: "auto", live: options.live === true });
   } else {
     log("proofloop.config.json already present.");
     const config: ProofloopConfig | undefined = readConfig(root);
     if (config && config.gate.checks.length === 0) {
       log("NOTE: gate.checks is empty. Add real checks so `proofloop gate` proves the app actually works.");
+    }
+    if (options.live) {
+      log("Refreshing live Proof Loop scaffold:");
+      runInit({ root, log, agent: "auto", live: true });
     }
   }
   log("");

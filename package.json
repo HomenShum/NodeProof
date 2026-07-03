@@ -1,6 +1,6 @@
 {
   "name": "proofloop",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Bring any coding agent. Proof Loop makes it prove the app works. Portable proof-supervisor CLI: gate + hooks + tool-use contracts + kickoff prompt. Zero runtime dependencies.",
   "keywords": [
     "proof-loop",
@@ -41,6 +41,6 @@
   "devDependencies": {
     "@types/node": "^20.11.0",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "vitest": "^4.1.9"
   }
 }

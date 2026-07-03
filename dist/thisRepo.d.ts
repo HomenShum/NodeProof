@@ -6,4 +6,5 @@ export type ThisRepoIo = {
 export declare function runThisRepo(options: {
     root: string;
     goal?: string;
+    live?: boolean;
 } & ThisRepoIo): 0;

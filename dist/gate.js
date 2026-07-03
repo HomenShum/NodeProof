@@ -63,7 +63,7 @@ function hasNpmTestScript(root) {
     if (!(0, node_fs_1.existsSync)(path))
         return false;
     try {
-        const pkg = JSON.parse((0, node_fs_1.readFileSync)(path, "utf8"));
+        const pkg = JSON.parse((0, node_fs_1.readFileSync)(path, "utf8").replace(/^\uFEFF/, ""));
         const scripts = pkg && typeof pkg === "object" ? pkg.scripts : undefined;
         return Boolean(scripts && typeof scripts === "object" && typeof scripts.test === "string");
     }

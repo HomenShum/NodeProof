@@ -2,20 +2,22 @@
 
 **Bring any coding agent. Proof Loop makes it prove the app works.**
 
-Coding agents write code and say "done." Proof Loop is the supervisor that decides whether *done*
-is true: it runs a gate against your app, refuses false completion, captures which tools your agent
-actually called, and keeps a regression the agent can't quietly weaken. One prompt starts the loop —
-**the gate decides when it's actually done.**
+Coding agents write code and say "done." Proof Loop is the supervisor that decides whether done is
+true: it runs a gate against your app, refuses false completion, captures which tools your agent
+actually called, and keeps proof state the agent cannot quietly weaken. One prompt starts the loop;
+the gate decides when it is actually done.
 
-Zero runtime dependencies. Node ≥ 20. Works on any repo.
+Zero runtime dependencies. Node >= 20. Works on any repo.
 
-## Quickstart (hackathon-speed)
+## Quickstart
 
 ```bash
-npx proofloop init      # detect your app, write proofloop.config.json
-npx proofloop doctor    # check node/git/coding-agent readiness
-npx proofloop prompt    # the kickoff prompt to paste into your coding agent
-npx proofloop gate      # run your configured checks -> pass/fail + .proofloop/gate-state.json
+npx proofloop init --agent auto --live  # config + manifest + agent docs + scripts + live scaffold
+npx proofloop doctor --json             # setup checks and fix commands
+npx proofloop manifest --dense          # compact repo status for agents
+npx proofloop ui contract --dense       # stable selectors/actions/assertions
+npx proofloop prompt                    # kickoff prompt to paste into your coding agent
+npx proofloop gate                      # run checks -> .proofloop/gate-state.json
 ```
 
 Then make "done" honest for a Claude Code session:
@@ -24,116 +26,122 @@ Then make "done" honest for a Claude Code session:
 npx proofloop hooks install
 ```
 
-This installs a **Stop hook** that refuses to let the agent stop while the gate is failing (with
-loop protection so it nudges, never loops forever), and a **PreToolUse guard** that blocks edits to
-your proof state and verifier files. Uninstall with `proofloop hooks uninstall`.
+This installs a Stop hook that refuses to let the agent stop while the gate is failing, a PreToolUse
+guard that blocks edits to proof/verifier state, and a PostToolUse logger for expected-tool-use
+contracts. Uninstall with `proofloop hooks uninstall`.
 
-**Define the gate before installing hooks.** Once hooks are installed, `proofloop.config.json` is
-itself a protected path — the gate definition is not the agent's to move.
+Define the gate before installing hooks. Once hooks are installed, `proofloop.config.json` is itself
+a protected path: the gate definition is not the agent's to move.
 
-### How the Stop gate decides
+## Agent-Friendly Setup
 
-- **Default (check-only):** the hook reads the persisted verdict at `.proofloop/gate-state.json` —
-  no subprocess, no network, deterministic. `passed` → stop allowed; `failed` → stop blocked with
-  the failing checks as the reason; no verdict yet / `no_gate` → stop **allowed** with an honest
-  note (the hook never bricks a fresh repo). Re-run `proofloop gate` to refresh the verdict; a
-  cached PASS is only as fresh as the last gate run.
-- **Command mode (opt-in):** `proofloop hooks install --gate-command "<cmd>"` spawns your command
-  on every stop attempt and blocks unless it exits 0.
-- **Loop protection:** a per-session block counter caps how many times the hook may refuse a stop
-  (default 5, `--max-stop-blocks <n>`); at the cap it allows the stop with a stderr warning that the
-  goal is NOT proven done.
+`npx proofloop init --agent auto --live` follows the Astryx-style setup pattern:
 
-### Protected paths (the goalpost layer)
+- Writes `proofloop.config.json` if missing.
+- Writes `.proofloop/manifest.json` with stack, commands, proof gates, workflows, UI contracts, and blockers.
+- Adds or updates agent docs: `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/proofloop.mdc`, and `.windsurf/rules/proofloop.md` when requested.
+- Adds package aliases such as `proofloop:init`, `proofloop:gate`, `proofloop:resume`, and `proofloop:charts`.
+- Creates live workflow/rubric starters under `proofloop/workflows/` and `proofloop/rubrics/`.
 
-The PreToolUse guard refuses agent edits (`Edit`/`Write`/`MultiEdit`/`NotebookEdit`, exit 2) to:
+The CLI stays primary. `npx proofloop mcp` exposes the same compact read-only surfaces to MCP clients
+without loading broad repo context.
 
-- **`.proofloop/`** — all local proof state: the gate verdict the Stop hook trusts
-  (one forged write to `.proofloop/gate-state.json` would fake a PASS), the hook scripts and block
-  counters, the tool-use capture log, regression history.
-- **`proofloop.config.json`** — the gate definition (checks, immutable list, protected paths).
-- **`.github/workflows/`** — the CI backstop that re-verifies the gate.
-- **your additions** — `protectedPaths: []` in `proofloop.config.json` (golden data, verify
-  scripts, fixtures…). Defaults are not removable.
+## How The Stop Gate Decides
 
-Edits under protected/guarded paths are additionally content-scanned for verifier-weakening
-patterns (lowering `minScore`, "skip evidence", "disable gate", …) and refused on match.
+- Default check-only mode reads `.proofloop/gate-state.json` with no subprocess or network call.
+- `passed` allows stop.
+- `failed` blocks stop and prints the failing checks.
+- No verdict yet or `no_gate` allows stop with an honest note so fresh repos are not bricked.
+- Command mode is opt-in: `proofloop hooks install --gate-command "<cmd>"`.
+- A per-session block counter prevents infinite refusal loops.
 
-> **Known bypass (honest):** the guard intercepts the agent's file-editing *tools*, not raw shell —
-> a `Bash`-issued write is not blocked. That is what `proofloop ci install github` is for: CI
-> re-runs the gate from a clean checkout, so a doctored local verdict doesn't survive a PR.
+## Protected Paths
 
-## Configuration (`proofloop.config.json`)
+The PreToolUse guard refuses agent file-edit tools for:
+
+- `.proofloop/`: local proof state, hook scripts, counters, tool-use logs, charts, and receipts.
+- `proofloop.config.json`: the gate definition.
+- `.github/workflows/`: the CI backstop.
+- Any repo-specific additions in `protectedPaths`.
+
+It also scans attempted edits for verifier-weakening patterns such as disabling gates, lowering
+thresholds, or skipping evidence.
+
+Honest boundary: the guard intercepts agent file-editing tools, not raw shell writes. Use
+`proofloop ci install github` so CI re-runs the gate from a clean checkout.
+
+## Configuration
 
 ```jsonc
 {
-  "app": "Vite",                      // detected by `proofloop init`
-  "workflow": "user signs up, uploads a CSV, sees the chart", // one-line intended workflow
+  "app": "Vite",
+  "workflow": "user signs up, uploads a CSV, sees the chart",
   "gate": {
-    "checks": [                        // each must exit 0 to count as proof
+    "checks": [
       { "name": "build", "command": "npm run build" },
       { "name": "tests", "command": "npm test" },
-      { "name": "e2e",   "command": "npx playwright test" }
+      { "name": "e2e", "command": "npx playwright test" }
     ]
   },
-  "immutable": ["scripts/verify.mjs"],   // repo-specific files the agent may never edit
-  "protectedPaths": ["data/golden/"]     // ADDITIONS to the default protected set above
+  "immutable": ["scripts/verify.mjs"],
+  "protectedPaths": ["data/golden/"]
 }
 ```
 
 With no checks configured, `proofloop gate` falls back to `npm test` when `package.json` has a test
-script; with neither, it reports `no_gate` (exit 2) — an unconfigured gate is never a pass.
+script. With neither, it reports `no_gate` with exit code 2. An unconfigured gate is never a pass.
 
 ## Commands
 
 | Command | What it does |
 |---|---|
-| `proofloop init` | Detect the app (Next/Vite/React/Python/generic) and write a starter `proofloop.config.json`. |
-| `proofloop doctor` | Report node version, git, which coding-agent workers (claude, codex) are on PATH, and whether hooks/config exist. |
-| `proofloop gate [--check]` | Run `gate.checks` (each a shell command; pass ⇔ exit 0) or your `npm test`. Writes `.proofloop/gate-state.json`. `--check` reads the last verdict without re-running. Exit 0 pass / 1 fail / 2 unusable. |
-| `proofloop hooks install\|uninstall\|status` | Install/remove the Stop + PreToolUse + PostToolUse hooks for Claude Code (deep-merged into `.claude/settings.json`, never clobbering your own hooks). |
-| `proofloop tooluse init\|verify` | Declare an **expected-tool-use contract** (must-call / must-not-call / order / params) and verify the captured tool log against it. Ships a `composio-email-triage` template. |
-| `proofloop ci install github` | Install a `proofloop-gate` GitHub Actions workflow so CI catches a lying local run. |
+| `proofloop init` | Detect the app and write a starter `proofloop.config.json`. |
+| `proofloop init --agent auto --live` | Add agent docs, manifest, package aliases, workflows, and rubrics. |
+| `proofloop doctor [--json]` | Report node/git/agent readiness, manifest/docs/scripts, Playwright/browser readiness, GitHub workflow, UI contracts, and fix commands. |
+| `proofloop manifest [--json\|--dense]` | Print project status: stack, commands, proof gates, workflows, UI contracts, blockers. |
+| `proofloop docs agents --dense` | Print compact agent workflow instructions. |
+| `proofloop ui contract\|component <id>` | Discover stable `data-testid` and `data-proofloop` selectors. |
+| `proofloop template --list` / `proofloop template <id> --write` | List or write starter proof-loop templates. |
+| `proofloop workflow --list` | List local proof workflow files. |
+| `proofloop resume [--json\|--dense]` | Read the latest gate receipt and print the next action. |
+| `proofloop report latest [--json]` | Summarize the latest gate receipt. |
+| `proofloop charts latest` | Write local JSON/SVG proof charts under `.proofloop/charts/`. |
+| `proofloop mcp` | Start the optional read-only MCP server. |
+| `proofloop gate [--check]` | Run configured checks or `npm test`; exit 0 pass, 1 fail, 2 unusable. |
+| `proofloop hooks install\|uninstall\|status` | Install/remove/status Claude Code Stop, PreToolUse, and PostToolUse hooks. |
+| `proofloop tooluse init\|verify` | Declare and verify expected-tool-use contracts. |
+| `proofloop ci install github` | Install a GitHub Actions proof gate. |
 | `proofloop prompt` | Print the canonical one-prompt kickoff. |
-| `proofloop this-repo` | The hackathon one-shot: doctor + ensure config + print the kickoff prompt. |
+| `proofloop this-repo --live` | Run doctor/setup framing and print the local loop contract. |
 
-## Expected-tool-use contracts (for tool-calling agents, e.g. Composio)
+## Expected-Tool-Use Contracts
 
-If your agent takes real actions through tools — Composio, MCP, function calls — the gate can assert
-it called the tools it was supposed to and **never** called forbidden ones:
+If your agent takes real actions through tools such as Composio, MCP, or function calls, the gate can
+assert it called required tools and never called forbidden ones:
 
 ```bash
-npx proofloop tooluse init --template composio-email-triage   # writes a starter contract
-npx proofloop hooks install                                    # captures tool calls to .proofloop/tooluse/log.jsonl
-# ... run your agent ...
-npx proofloop tooluse verify --contract tooluse-contract.json  # pass/fail against the contract
+npx proofloop tooluse init --template composio-email-triage
+npx proofloop hooks install
+# run your agent
+npx proofloop tooluse verify --contract tooluse-contract.json
 ```
 
-The verifier is **fail-closed**: a deny-list ("never call `GITHUB_*`") cannot be certified from an
-empty or missing log, and server-pinned names mean `mcp__evil__X` can't impersonate
-`mcp__composio__X`.
+The verifier is fail-closed: a deny-list cannot be certified from an empty or missing log, and
+server-pinned names mean `mcp__evil__X` cannot impersonate `mcp__composio__X`.
 
-> **Honest boundary.** This is **local, session-side capture** — it proves what *this* worker's tool
-> hooks saw. It is not server-side attestation from your tool provider, and tool calls issued outside
-> the agent's hooks (e.g. raw `curl` in a Bash step) are not captured. CI re-verification of a
-> committed trace is the backstop.
+## Scope
 
-## Scope (honest)
+This package is the portable core: gate, refuse-fake-done hooks, expected-tool-use contracts,
+kickoff prompt, app/worker detection, agent-friendly setup, manifest/docs/script scaffolding,
+UI-contract discovery, local proof charts, and a read-only MCP surface.
 
-This package is the **portable core**: gate, refuse-fake-done hooks, expected-tool-use contracts,
-kickoff prompt, app/worker detection. The full **live-browser certification** — Playwright
-user-workflow proof, visual judges, code-graph blast-radius localization, chart packs — lives in the
-NodeRoom reference implementation and is on the roadmap for this package. The portable
-**benchmark-driven agent-development skills** are at
-[github.com/HomenShum/solo-founder-agent-builder](https://github.com/HomenShum/solo-founder-agent-builder).
+The package does not pretend to know your app's official benchmark or browser flow by default. You
+make that real by putting deterministic checks in `proofloop.config.json`: build, tests, Playwright
+user flows, live deployment smoke checks, official scorers, or your own verifier. Proof Loop then
+supervises those checks and refuses fake done.
 
-Proof Loop **supervises**; it does not replace your coding agent. In v0.1 you drive your agent (Claude
-Code, Codex, …) and Proof Loop holds the gate — it does not auto-spawn a worker fleet.
+Proof Loop supervises; it does not replace your coding agent. You drive your agent (Claude Code,
+Codex, Cursor, Windsurf, or another worker) and Proof Loop holds the gate. The optional MCP server is
+for compact context surfaces, not a hidden autonomous worker fleet.
 
-## Doctrine
-
-Proof Loop is self-improving but never self-grading: the gate is external to every worker, and the
-guard blocks edits that would weaken the verifier or doctor the proof state. See the NodeRoom
-`anti-reward-hacking-doctrine` for the full treatment.
-
-MIT © Homen Shum
+MIT (c) Homen Shum
