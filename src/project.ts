@@ -56,6 +56,7 @@ export type UiContract = {
 export type ProofloopProjectManifest = {
   schema: "proofloop-project-manifest-v1";
   generatedAt: string;
+  config: { kind: "portable" | "reference" | "missing"; path?: string };
   repo: {
     name: string;
     root: string;
@@ -226,13 +227,18 @@ export function buildProofloopProjectManifest(root: string): ProofloopProjectMan
   const pkg = readPackageJson(resolved);
   const repoName = typeof pkg?.name === "string" && pkg.name.trim() ? pkg.name.trim() : basename(resolved);
   const config = safeReadConfig(resolved);
+  const referenceConfigPath = join(resolved, ".proofloop", "config.json");
+  const referenceConfigExists = existsSync(referenceConfigPath);
   const packageScripts = relevantScripts(pkg);
   const agentInstructions = (Object.entries(AGENT_FILES) as [ProofloopAgentKind, { path: string; label: string }][])
     .map(([agent, file]) => ({ agent, path: file.path, exists: existsSync(join(resolved, file.path)) }));
   const workflows = listProofloopWorkflows(resolved);
   const uiContracts = discoverUiContracts(resolved);
   const knownBlockers: string[] = [];
-  if (!configExists(resolved)) knownBlockers.push("proofloop.config.json missing; run `npx proofloop init --agent auto --live`.");
+  if (!configExists(resolved) && !referenceConfigExists) knownBlockers.push("proofloop.config.json missing; run `npx proofloop init --agent auto --live`.");
+  if (!configExists(resolved) && referenceConfigExists) {
+    knownBlockers.push("NodeRoom reference `.proofloop/config.json` detected; add `proofloop.config.json` only if standalone `npx proofloop gate` should run directly.");
+  }
   if (config && config.gate.checks.length === 0) knownBlockers.push("gate.checks is empty; add deterministic checks before claiming proof.");
   if (!pkg) knownBlockers.push("package.json missing; package script aliases were not installed.");
   if (pkg && !hasProofloopScripts(pkg)) knownBlockers.push("Proof Loop package scripts missing; run `npx proofloop init --agent auto --live`.");
@@ -242,6 +248,11 @@ export function buildProofloopProjectManifest(root: string): ProofloopProjectMan
   return {
     schema: "proofloop-project-manifest-v1",
     generatedAt: new Date().toISOString(),
+    config: configExists(resolved)
+      ? { kind: "portable", path: "proofloop.config.json" }
+      : referenceConfigExists
+        ? { kind: "reference", path: ".proofloop/config.json" }
+        : { kind: "missing" },
     repo: {
       name: repoName,
       root: resolved,
@@ -264,7 +275,7 @@ export function buildProofloopProjectManifest(root: string): ProofloopProjectMan
     packageScripts,
     agentInstructions,
     workflows,
-    proofGates: config?.gate.checks ?? [],
+    proofGates: config?.gate.checks ?? readReferenceSuiteChecks(referenceConfigPath),
     uiContracts,
     knownBlockers,
   };
@@ -281,6 +292,7 @@ export function formatProofloopProjectManifestDense(manifest: ProofloopProjectMa
   const lines = [
     `repo=${manifest.repo.name}`,
     `app=${manifest.repo.app} (${manifest.repo.appReason})`,
+    `config=${manifest.config.kind}${manifest.config.path ? `:${manifest.config.path}` : ""}`,
     `stack=${manifest.repo.stack.length ? manifest.repo.stack.join(",") : "unknown"}`,
     `agents=${manifest.agentInstructions.filter((entry) => entry.exists).map((entry) => entry.path).join(",") || "missing"}`,
     `scripts=${Object.keys(manifest.packageScripts).join(",") || "none"}`,
@@ -598,7 +610,25 @@ function relevantScripts(pkg: Record<string, unknown> | undefined): Record<strin
 
 function hasProofloopScripts(pkg: Record<string, unknown>): boolean {
   const scripts = relevantScripts(pkg);
-  return Object.keys(GENERATED_PACKAGE_SCRIPTS).every((name) => scripts[name] === GENERATED_PACKAGE_SCRIPTS[name]);
+  return Object.keys(GENERATED_PACKAGE_SCRIPTS).every((name) => typeof scripts[name] === "string" && scripts[name].includes("proofloop"));
+}
+
+function readReferenceSuiteChecks(path: string): { name: string; command: string }[] {
+  if (!existsSync(path)) return [];
+  try {
+    const parsed = JSON.parse(readFileSync(path, "utf8").replace(/^\uFEFF/, ""));
+    const record = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+    const suites = record.suites && typeof record.suites === "object" && !Array.isArray(record.suites) ? record.suites as Record<string, unknown> : {};
+    const checks: { name: string; command: string }[] = [];
+    for (const [name, value] of Object.entries(suites)) {
+      if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+      const command = (value as Record<string, unknown>).cmd;
+      if (typeof command === "string" && command.trim()) checks.push({ name, command: command.trim() });
+    }
+    return checks;
+  } catch {
+    return [];
+  }
 }
 
 function detectStack(pkg: Record<string, unknown> | undefined, root: string): string[] {

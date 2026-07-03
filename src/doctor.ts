@@ -20,6 +20,7 @@ export type DoctorReport = {
   claudeDirExists: boolean;
   hooksInstalled: boolean;
   configExists: boolean;
+  referenceConfigExists: boolean;
   manifestExists: boolean;
   agentDocs: { path: string; exists: boolean }[];
   packageScripts: { name: string; exists: boolean; command?: string }[];
@@ -49,7 +50,9 @@ export function buildDoctorReport(root: string): DoctorReport {
   const claudeDirExists = existsSync(join(resolved, ".claude"));
   const hooksStatus = proofloopHooksStatus({ root: resolved });
   const hooksInstalled = hooksStatus.settings.some((file) => file.stopHookInstalled);
-  const hasConfig = configExists(resolved);
+  const portableConfigExists = configExists(resolved);
+  const referenceConfigExists = existsSync(join(resolved, ".proofloop", "config.json"));
+  const hasConfig = portableConfigExists || referenceConfigExists;
   const manifest = buildProofloopProjectManifest(resolved);
   const manifestExists = existsSync(join(resolved, ".proofloop", "manifest.json"));
   const agentDocs = manifest.agentInstructions.map((entry) => ({ path: entry.path, exists: entry.exists }));
@@ -100,7 +103,8 @@ export function buildDoctorReport(root: string): DoctorReport {
     workers,
     claudeDirExists,
     hooksInstalled,
-    configExists: hasConfig,
+    configExists: portableConfigExists,
+    referenceConfigExists,
     manifestExists,
     agentDocs,
     packageScripts,
@@ -128,7 +132,7 @@ export function formatDoctorReport(report: DoctorReport): string {
   }
   lines.push(`  [${report.claudeDirExists ? "OK  " : "----"}] .claude/ present`);
   lines.push(`  [${report.hooksInstalled ? "OK  " : "----"}] proofloop hooks installed`);
-  lines.push(`  [${check(report.configExists)}] proofloop.config.json present`);
+  lines.push(`  [${report.configExists || report.referenceConfigExists ? "OK  " : "MISS"}] Proof Loop config (${report.configExists ? "proofloop.config.json" : report.referenceConfigExists ? ".proofloop/config.json" : "missing"})`);
   lines.push(`  [${check(report.manifestExists)}] .proofloop/manifest.json present`);
   lines.push(`  [${report.agentDocs.some((entry) => entry.exists) ? "OK  " : "MISS"}] agent docs (${report.agentDocs.filter((entry) => entry.exists).map((entry) => entry.path).join(", ") || "missing"})`);
   lines.push(`  [${report.packageScripts.every((entry) => entry.exists) ? "OK  " : "MISS"}] package script aliases`);

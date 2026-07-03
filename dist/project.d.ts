@@ -10,6 +10,10 @@ export type UiContract = {
 export type ProofloopProjectManifest = {
     schema: "proofloop-project-manifest-v1";
     generatedAt: string;
+    config: {
+        kind: "portable" | "reference" | "missing";
+        path?: string;
+    };
     repo: {
         name: string;
         root: string;
