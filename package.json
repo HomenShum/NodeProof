@@ -1,0 +1,46 @@
+{
+  "name": "proofloop",
+  "version": "0.1.0",
+  "description": "Bring any coding agent. Proof Loop makes it prove the app works. Portable proof-supervisor CLI: gate + hooks + tool-use contracts + kickoff prompt. Zero runtime dependencies.",
+  "keywords": [
+    "proof-loop",
+    "coding-agent",
+    "claude-code",
+    "hooks",
+    "eval",
+    "gate",
+    "mcp",
+    "tool-use",
+    "agent-reliability",
+    "stop-hook"
+  ],
+  "author": "Homen Shum",
+  "license": "MIT",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "proofloop": "dist/cli.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "templates",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build",
+    "pretest": "npm run build",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

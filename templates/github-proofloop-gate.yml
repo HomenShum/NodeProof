@@ -1,0 +1,26 @@
+# Proof Loop gate -- fails the job unless the proof gate passes.
+#
+# Installed into a target repo by `proofloop ci install github`. The gate runs
+# `npx proofloop gate` (this package), which reads proofloop.config.json
+# gate.checks (or falls back to `npm test`) and exits non-zero unless every
+# configured check passes -- so a red gate is a red check, no separate scoring
+# glue needed.
+name: proofloop-gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  proofloop-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: npm ci || npm install
+      - name: Run the Proof Loop gate
+        run: npx proofloop gate
