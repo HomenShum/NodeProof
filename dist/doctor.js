@@ -32,7 +32,9 @@ function buildDoctorReport(root) {
     const claudeDirExists = (0, node_fs_1.existsSync)((0, node_path_1.join)(resolved, ".claude"));
     const hooksStatus = (0, proofloopHooks_1.proofloopHooksStatus)({ root: resolved });
     const hooksInstalled = hooksStatus.settings.some((file) => file.stopHookInstalled);
-    const hasConfig = (0, config_1.configExists)(resolved);
+    const portableConfigExists = (0, config_1.configExists)(resolved);
+    const referenceConfigExists = (0, node_fs_1.existsSync)((0, node_path_1.join)(resolved, ".proofloop", "config.json"));
+    const hasConfig = portableConfigExists || referenceConfigExists;
     const manifest = (0, project_1.buildProofloopProjectManifest)(resolved);
     const manifestExists = (0, node_fs_1.existsSync)((0, node_path_1.join)(resolved, ".proofloop", "manifest.json"));
     const agentDocs = manifest.agentInstructions.map((entry) => ({ path: entry.path, exists: entry.exists }));
@@ -86,7 +88,8 @@ function buildDoctorReport(root) {
         workers,
         claudeDirExists,
         hooksInstalled,
-        configExists: hasConfig,
+        configExists: portableConfigExists,
+        referenceConfigExists,
         manifestExists,
         agentDocs,
         packageScripts,
@@ -113,7 +116,7 @@ function formatDoctorReport(report) {
     }
     lines.push(`  [${report.claudeDirExists ? "OK  " : "----"}] .claude/ present`);
     lines.push(`  [${report.hooksInstalled ? "OK  " : "----"}] proofloop hooks installed`);
-    lines.push(`  [${check(report.configExists)}] proofloop.config.json present`);
+    lines.push(`  [${report.configExists || report.referenceConfigExists ? "OK  " : "MISS"}] Proof Loop config (${report.configExists ? "proofloop.config.json" : report.referenceConfigExists ? ".proofloop/config.json" : "missing"})`);
     lines.push(`  [${check(report.manifestExists)}] .proofloop/manifest.json present`);
     lines.push(`  [${report.agentDocs.some((entry) => entry.exists) ? "OK  " : "MISS"}] agent docs (${report.agentDocs.filter((entry) => entry.exists).map((entry) => entry.path).join(", ") || "missing"})`);
     lines.push(`  [${report.packageScripts.every((entry) => entry.exists) ? "OK  " : "MISS"}] package script aliases`);

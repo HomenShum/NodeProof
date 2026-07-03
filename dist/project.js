@@ -189,14 +189,19 @@ function buildProofloopProjectManifest(root) {
     const pkg = readPackageJson(resolved);
     const repoName = typeof pkg?.name === "string" && pkg.name.trim() ? pkg.name.trim() : (0, node_path_1.basename)(resolved);
     const config = safeReadConfig(resolved);
+    const referenceConfigPath = (0, node_path_1.join)(resolved, ".proofloop", "config.json");
+    const referenceConfigExists = (0, node_fs_1.existsSync)(referenceConfigPath);
     const packageScripts = relevantScripts(pkg);
     const agentInstructions = Object.entries(AGENT_FILES)
         .map(([agent, file]) => ({ agent, path: file.path, exists: (0, node_fs_1.existsSync)((0, node_path_1.join)(resolved, file.path)) }));
     const workflows = listProofloopWorkflows(resolved);
     const uiContracts = discoverUiContracts(resolved);
     const knownBlockers = [];
-    if (!(0, config_1.configExists)(resolved))
+    if (!(0, config_1.configExists)(resolved) && !referenceConfigExists)
         knownBlockers.push("proofloop.config.json missing; run `npx proofloop init --agent auto --live`.");
+    if (!(0, config_1.configExists)(resolved) && referenceConfigExists) {
+        knownBlockers.push("NodeRoom reference `.proofloop/config.json` detected; add `proofloop.config.json` only if standalone `npx proofloop gate` should run directly.");
+    }
     if (config && config.gate.checks.length === 0)
         knownBlockers.push("gate.checks is empty; add deterministic checks before claiming proof.");
     if (!pkg)
@@ -210,6 +215,11 @@ function buildProofloopProjectManifest(root) {
     return {
         schema: "proofloop-project-manifest-v1",
         generatedAt: new Date().toISOString(),
+        config: (0, config_1.configExists)(resolved)
+            ? { kind: "portable", path: "proofloop.config.json" }
+            : referenceConfigExists
+                ? { kind: "reference", path: ".proofloop/config.json" }
+                : { kind: "missing" },
         repo: {
             name: repoName,
             root: resolved,
@@ -232,7 +242,7 @@ function buildProofloopProjectManifest(root) {
         packageScripts,
         agentInstructions,
         workflows,
-        proofGates: config?.gate.checks ?? [],
+        proofGates: config?.gate.checks ?? readReferenceSuiteChecks(referenceConfigPath),
         uiContracts,
         knownBlockers,
     };
@@ -247,6 +257,7 @@ function formatProofloopProjectManifestDense(manifest) {
     const lines = [
         `repo=${manifest.repo.name}`,
         `app=${manifest.repo.app} (${manifest.repo.appReason})`,
+        `config=${manifest.config.kind}${manifest.config.path ? `:${manifest.config.path}` : ""}`,
         `stack=${manifest.repo.stack.length ? manifest.repo.stack.join(",") : "unknown"}`,
         `agents=${manifest.agentInstructions.filter((entry) => entry.exists).map((entry) => entry.path).join(",") || "missing"}`,
         `scripts=${Object.keys(manifest.packageScripts).join(",") || "none"}`,
@@ -567,7 +578,28 @@ function relevantScripts(pkg) {
 }
 function hasProofloopScripts(pkg) {
     const scripts = relevantScripts(pkg);
-    return Object.keys(GENERATED_PACKAGE_SCRIPTS).every((name) => scripts[name] === GENERATED_PACKAGE_SCRIPTS[name]);
+    return Object.keys(GENERATED_PACKAGE_SCRIPTS).every((name) => typeof scripts[name] === "string" && scripts[name].includes("proofloop"));
+}
+function readReferenceSuiteChecks(path) {
+    if (!(0, node_fs_1.existsSync)(path))
+        return [];
+    try {
+        const parsed = JSON.parse((0, node_fs_1.readFileSync)(path, "utf8").replace(/^\uFEFF/, ""));
+        const record = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+        const suites = record.suites && typeof record.suites === "object" && !Array.isArray(record.suites) ? record.suites : {};
+        const checks = [];
+        for (const [name, value] of Object.entries(suites)) {
+            if (!value || typeof value !== "object" || Array.isArray(value))
+                continue;
+            const command = value.cmd;
+            if (typeof command === "string" && command.trim())
+                checks.push({ name, command: command.trim() });
+        }
+        return checks;
+    }
+    catch {
+        return [];
+    }
 }
 function detectStack(pkg, root) {
     const deps = {};

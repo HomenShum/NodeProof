@@ -17,6 +17,7 @@ export type DoctorReport = {
     claudeDirExists: boolean;
     hooksInstalled: boolean;
     configExists: boolean;
+    referenceConfigExists: boolean;
     manifestExists: boolean;
     agentDocs: {
         path: string;
