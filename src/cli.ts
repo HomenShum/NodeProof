@@ -10,6 +10,7 @@
  *   proofloop ci install github        write the GitHub Actions gate workflow
  *   proofloop prompt                   print the one-prompt kickoff
  *   proofloop this-repo [--goal ...] [--write-runner-plan] [--run]
+ *   proofloop transfer-check sample|gate   two-layer certification agreement gate
  *   proofloop manifest|docs|template|workflow|ui|resume|report|charts|mcp
  *
  * Exit codes are per-command (documented at each case). Zero runtime deps.
@@ -44,6 +45,7 @@ import {
   type ProofloopAgentTarget,
 } from "./project";
 import { runProofloopRunner } from "./runner";
+import { runTransferCheckCommand } from "./transferCheck";
 
 type Flags = { positional: string[]; options: Record<string, string | boolean> };
 export const MCP_SERVER_RUNNING = -999;
@@ -108,6 +110,7 @@ function usage(): string {
     "  report latest [--json]     latest gate report",
     "  charts latest              write local JSON/SVG proof charts",
     "  runner run|resume|status   durable append-only task runner with budget and resume",
+    "  transfer-check sample|gate two-layer certification: seeded browser sample + agreement gate",
     "  mcp                        start the optional read-only MCP server",
     "  prompt                     print the one-prompt kickoff",
     "  this-repo [--goal <text>] [--write-runner-plan] [--run]",
@@ -189,6 +192,9 @@ export function runCli(argv: string[]): number | Promise<number> {
 
     case "runner":
       return runRunnerCommand(positional[1], options, root);
+
+    case "transfer-check":
+      return runTransferCheckCommand(positional[1], options, root);
 
     case "mcp":
       startMcpServer({ root });

@@ -130,6 +130,8 @@ script. With neither, it reports `no_gate` with exit code 2. An unconfigured gat
 | `proofloop runner run --plan <file> --budget-usd 100` | Run an append-only, budgeted task plan under `.proofloop/runner/runs/<runId>/`. |
 | `proofloop runner resume --run-id latest` | Resume a runner after a crash; stale `running` tasks are requeued. |
 | `proofloop runner status --run-id latest [--json]` | Inspect durable runner state and ledger paths. |
+| `proofloop transfer-check sample --capability <file> --seed <sha>` | Deterministic stratified browser-lane sample from capability results (failures included by design). |
+| `proofloop transfer-check gate --capability <file> --browser <file>` | Two-layer agreement gate: exit 0 agreed / 1 diverged / 2 unusable (fail-closed). |
 | `proofloop mcp` | Start the optional read-only MCP server. |
 | `proofloop gate [--check]` | Run configured checks or `npm test`; exit 0 pass, 1 fail, 2 unusable. |
 | `proofloop hooks install\|uninstall\|status` | Install/remove/status Claude Code Stop, PreToolUse, and PostToolUse hooks. |
@@ -164,6 +166,51 @@ npx proofloop tooluse verify --contract tooluse-contract.json
 
 The verifier is fail-closed: a deny-list cannot be certified from an empty or missing log, and
 server-pinned names mean `mcp__evil__X` cannot impersonate `mcp__composio__X`.
+
+## Two-layer certification: the transfer gate
+
+Running every benchmark task through a real browser is slow and expensive, so the
+two-layer model (`two-layer-certification-v1`) splits certification:
+
+- the **capability lane** runs ALL tasks through the live agent harness (headless, cheap);
+- the **browser lane** replays a small stratified sample through the real production UI.
+
+The split saves ~95% of cost and wall-clock, but it opens a gaming surface: the harness
+lane could take shortcuts the product path does not have (memory-mode, bypassed tool
+contracts) and nothing would notice. `proofloop transfer-check` closes that hole by
+treating the browser sample as an **agreement test on the capability lane** -- the
+anti-cheat doctrine's in-app transfer rule made mechanical. Divergence fails closed.
+
+```bash
+# 1. Sample which capability results the browser lane must replay.
+#    Pass the commit SHA as the seed: same seed + same input = byte-identical sample,
+#    so the agent cannot re-roll the dice until it gets a sample it likes.
+npx proofloop transfer-check sample --capability capability-results.json --seed "$(git rev-parse HEAD)" > transfer-sample.json
+
+# 2. Run the sampled tasks through the real UI, record browser receipts, then gate.
+npx proofloop transfer-check gate --capability capability-results.json --browser browser-receipts.json
+```
+
+Both lanes accept either a receipts JSON array (`[{ taskId, model, family?, pass }]`)
+or a runner events ledger (`.proofloop/runner/runs/<runId>/ledger.jsonl`; label ledger
+rows with `--model`).
+
+**Why failures must be sampled.** Verifying capability-lane failures is as important as
+verifying passes: a failure that passes in the browser exposes a harness bug (the lane is
+under-reporting); a pass that fails in the browser exposes a harness shortcut (the claim
+is inflated). The sampler therefore reserves at least `ceil(N/3)` slots per family for
+failures whenever failures exist, and the gate refuses (exit 2, cherry-pick guard) a
+browser set that paired with zero capability failures -- overridable only by an explicit
+`--allow-no-failure-overlap`, which prints a loud warning into the output.
+
+**Claim language rule.** On agreement the gate prints exactly what was proven:
+capability verified through the harness, plus transfer verified on N seeded pairs --
+never "all tasks browser-verified". Exit codes: `0` agreement >= `--min-agreement`
+(default 0.9) with overlap >= `--min-overlap` (default 5); `1` divergence, with each
+disagreeing pair labeled by direction (capability-pass/browser-fail = suspected harness
+shortcut; capability-fail/browser-pass = suspected harness under-reporting); `2`
+unusable evidence (unreadable inputs, thin overlap, or cherry-picked sample). Zero
+evidence never exits 0.
 
 ## Scope
 
