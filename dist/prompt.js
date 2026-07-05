@@ -26,6 +26,7 @@ exports.PACKAGE_COMMANDS = [
     "report",
     "charts",
     "runner",
+    "transfer-check",
     "mcp",
     "prompt",
     "this-repo",

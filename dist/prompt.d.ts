@@ -6,5 +6,5 @@
  * mentioned here is a real command.
  */
 /** The set of top-level commands the package CLI implements. */
-export declare const PACKAGE_COMMANDS: readonly ["init", "doctor", "gate", "hooks", "tooluse", "ci", "manifest", "docs", "template", "workflow", "ui", "resume", "report", "charts", "runner", "mcp", "prompt", "this-repo"];
+export declare const PACKAGE_COMMANDS: readonly ["init", "doctor", "gate", "hooks", "tooluse", "ci", "manifest", "docs", "template", "workflow", "ui", "resume", "report", "charts", "runner", "transfer-check", "mcp", "prompt", "this-repo"];
 export declare function proofloopKickoffPrompt(): string;
