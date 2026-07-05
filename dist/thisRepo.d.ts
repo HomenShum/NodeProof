@@ -2,9 +2,14 @@ export type ThisRepoIo = {
     log?: (line: string) => void;
     logError?: (line: string) => void;
 };
-/** Exit 0 always (this is a guided setup, not a gate). */
-export declare function runThisRepo(options: {
+export type ThisRepoOptions = {
     root: string;
     goal?: string;
     live?: boolean;
-} & ThisRepoIo): 0;
+    writeRunnerPlan?: boolean;
+    run?: boolean;
+    budgetUsd?: number;
+    maxTasks?: number;
+} & ThisRepoIo;
+/** Exit 0 unless the optional runner is asked to execute and a task fails. */
+export declare function runThisRepo(options: ThisRepoOptions): Promise<number>;

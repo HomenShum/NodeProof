@@ -9,7 +9,7 @@
  *   proofloop tooluse <verify|init>    expected-tool-use contracts
  *   proofloop ci install github        write the GitHub Actions gate workflow
  *   proofloop prompt                   print the one-prompt kickoff
- *   proofloop this-repo [--goal ...]   guided local-loop setup (drives YOUR agent)
+ *   proofloop this-repo [--goal ...] [--write-runner-plan] [--run]
  *   proofloop manifest|docs|template|workflow|ui|resume|report|charts|mcp
  *
  * Exit codes are per-command (documented at each case). Zero runtime deps.
@@ -110,7 +110,7 @@ function usage(): string {
     "  runner run|resume|status   durable append-only task runner with budget and resume",
     "  mcp                        start the optional read-only MCP server",
     "  prompt                     print the one-prompt kickoff",
-    "  this-repo [--goal <text>]  guided local-loop setup (drives YOUR agent honestly)",
+    "  this-repo [--goal <text>] [--write-runner-plan] [--run]",
     "",
     "Global options:",
     "  --dir <path>               operate on this repo root (default: cwd)",
@@ -153,7 +153,15 @@ export function runCli(argv: string[]): number | Promise<number> {
     }
 
     case "this-repo":
-      return runThisRepo({ root, live: options.live === true, ...(str(options.goal) !== undefined ? { goal: str(options.goal)! } : {}) });
+      return runThisRepo({
+        root,
+        live: options.live === true,
+        writeRunnerPlan: options["write-runner-plan"] === true || options.runner === true,
+        run: options.run === true,
+        ...(str(options.goal) !== undefined ? { goal: str(options.goal)! } : {}),
+        ...(num(options["budget-usd"]) !== undefined ? { budgetUsd: num(options["budget-usd"])! } : {}),
+        ...(num(options["max-tasks"]) !== undefined ? { maxTasks: num(options["max-tasks"])! } : {}),
+      });
 
     case "manifest":
       return runManifestCommand(options, root);

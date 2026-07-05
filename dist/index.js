@@ -34,5 +34,6 @@ __exportStar(require("./scaffoldConstants"), exports);
 __exportStar(require("./project"), exports);
 __exportStar(require("./mcp"), exports);
 __exportStar(require("./runner"), exports);
+__exportStar(require("./layeredPlan"), exports);
 var cli_1 = require("./cli");
 Object.defineProperty(exports, "runCli", { enumerable: true, get: function () { return cli_1.runCli; } });

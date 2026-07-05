@@ -15,13 +15,16 @@ const node_path_1 = require("node:path");
 const config_1 = require("./config");
 const doctor_1 = require("./doctor");
 const init_1 = require("./init");
+const layeredPlan_1 = require("./layeredPlan");
 const prompt_1 = require("./prompt");
-/** Exit 0 always (this is a guided setup, not a gate). */
-function runThisRepo(options) {
+const runner_1 = require("./runner");
+/** Exit 0 unless the optional runner is asked to execute and a task fails. */
+async function runThisRepo(options) {
     const root = (0, node_path_1.resolve)(options.root);
     const log = options.log ?? console.log;
+    const logError = options.logError ?? console.error;
     log("=== proofloop this-repo: wire the local proof loop on THIS repo ===");
-    log("(This drives YOUR coding agent through you -- it does not auto-launch or run an autonomous fleet.)");
+    log("(Default mode drives YOUR coding agent through you. Add --write-runner-plan or --run to hand off to the local durable runner.)");
     log("");
     // 1. Doctor.
     log("--- Step 1: readiness check ---");
@@ -52,8 +55,39 @@ function runThisRepo(options) {
     }
     log((0, prompt_1.proofloopKickoffPrompt)());
     log("");
-    // 4. What to do next -- honest, no auto-run.
-    log("--- Step 4: drive the loop ---");
+    // 4. Optional durable runner handoff for external orchestrators.
+    let runnerPlanPath;
+    if (options.writeRunnerPlan === true || options.run === true) {
+        log("--- Step 4: external runner plan ---");
+        const result = (0, layeredPlan_1.writeProofloopLayeredRunnerPlan)(root, { ...(options.goal ? { goal: options.goal } : {}) });
+        runnerPlanPath = result.planPath;
+        log(`proofloop this-repo: wrote ${runnerPlanPath}`);
+        log([
+            `  mode=${result.plan.mode}`,
+            `setup=${result.plan.summary.setupTasks}`,
+            `capability=${result.plan.summary.capabilityTasks}`,
+            `browser=${result.plan.summary.browserTasks}`,
+            `browserRequiredForAllCapabilityTasks=${result.plan.summary.browserRequiredForAllCapabilityTasks}`,
+        ].join(" "));
+        log("  run with:");
+        log(`  npx proofloop runner run --plan "${runnerPlanPath.replace(/"/g, '\\"')}"${options.budgetUsd !== undefined ? ` --budget-usd ${options.budgetUsd}` : ""}`);
+        log("");
+    }
+    if (options.run === true) {
+        const planPath = runnerPlanPath ?? (0, layeredPlan_1.writeProofloopLayeredRunnerPlan)(root, { ...(options.goal ? { goal: options.goal } : {}) }).planPath;
+        const result = await (0, runner_1.runProofloopRunner)({
+            root,
+            subcommand: "run",
+            planPath,
+            ...(options.budgetUsd !== undefined ? { budgetUsd: options.budgetUsd } : {}),
+            ...(options.maxTasks !== undefined ? { maxTasks: options.maxTasks } : {}),
+            log,
+            logError,
+        });
+        return result.exitCode;
+    }
+    // 5. What to do next -- honest, no auto-run unless requested.
+    log(options.writeRunnerPlan === true ? "--- Step 5: drive the loop ---" : "--- Step 4: drive the loop ---");
     log("  1. Paste the prompt above into Claude Code / Codex / your agent and let it do the work.");
     log("  2. Add real proof checks to proofloop.config.json gate.checks if you have not yet.");
     log("  3. Run `proofloop gate` -- it exits 0 only when every check passes. That is your proof.");

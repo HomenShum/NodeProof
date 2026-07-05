@@ -17,6 +17,7 @@ npx proofloop doctor --json             # setup checks and fix commands
 npx proofloop manifest --dense          # compact repo status for agents
 npx proofloop ui contract --dense       # stable selectors/actions/assertions
 npx proofloop prompt                    # kickoff prompt to paste into your coding agent
+npx proofloop this-repo --goal "proofloop my latest updates" --write-runner-plan
 npx proofloop runner run --plan proofloop.runner.json --budget-usd 100
 npx proofloop gate                      # run checks -> .proofloop/gate-state.json
 ```
@@ -46,6 +47,25 @@ a protected path: the gate definition is not the agent's to move.
 
 The CLI stays primary. `npx proofloop mcp` exposes the same compact read-only surfaces to MCP clients
 without loading broad repo context.
+
+For a non-technical kickoff, tell Claude/Codex: "proofloop my latest repo" or
+"proofloop my latest updates." The agent-facing command is:
+
+```bash
+npx proofloop this-repo --goal "proofloop my latest updates" --write-runner-plan
+```
+
+That writes `.proofloop/runner/latest-updates.plan.json` in two layers:
+
+- Capability checks: headless build/test/typecheck/lint/gate tasks.
+- Browser certification checks: discovered e2e/browser/Playwright/Cypress tasks.
+
+Browser verification is not forced through every capability task. Use the local durable runner when
+you want the CLI to execute the plan with append-only state, budget control, and resume:
+
+```bash
+npx proofloop this-repo --goal "proofloop my latest updates" --write-runner-plan --run --budget-usd 100
+```
 
 ## How The Stop Gate Decides
 
@@ -117,6 +137,7 @@ script. With neither, it reports `no_gate` with exit code 2. An unconfigured gat
 | `proofloop ci install github` | Install a GitHub Actions proof gate. |
 | `proofloop prompt` | Print the canonical one-prompt kickoff. |
 | `proofloop this-repo --live` | Run doctor/setup framing and print the local loop contract. |
+| `proofloop this-repo --write-runner-plan [--run]` | Generate and optionally execute a two-layer durable runner plan for latest repo/latest updates. |
 
 Minimal runner plan:
 
@@ -154,6 +175,12 @@ atomic state writes, single-flight locks, budget kill-switch, stale-running
 resume, and secret redaction. Bring your app-specific benchmark commands in a
 `proofloop-runner-plan-v1` JSON file; the package supervises execution without
 claiming benchmark semantics for you.
+
+`proofloop this-repo --write-runner-plan` generates a generic two-layer plan from the current repo:
+headless capability checks first, then browser/UI certification checks if the repo exposes them.
+This is the external-orchestrator path for "proofloop my latest repo" style usage. The runner can
+execute that plan locally, but official benchmark meaning still belongs to your app-specific
+scorers and receipts.
 
 The package does not pretend to know your app's official benchmark or browser flow by default. You
 make that real by putting deterministic checks in `proofloop.config.json`: build, tests, Playwright

@@ -12,20 +12,33 @@ import { resolve } from "node:path";
 import { configExists, readConfig, type ProofloopConfig } from "./config";
 import { runDoctor } from "./doctor";
 import { runInit } from "./init";
+import { writeProofloopLayeredRunnerPlan } from "./layeredPlan";
 import { proofloopKickoffPrompt } from "./prompt";
+import { runProofloopRunner } from "./runner";
 
 export type ThisRepoIo = {
   log?: (line: string) => void;
   logError?: (line: string) => void;
 };
 
-/** Exit 0 always (this is a guided setup, not a gate). */
-export function runThisRepo(options: { root: string; goal?: string; live?: boolean } & ThisRepoIo): 0 {
+export type ThisRepoOptions = {
+  root: string;
+  goal?: string;
+  live?: boolean;
+  writeRunnerPlan?: boolean;
+  run?: boolean;
+  budgetUsd?: number;
+  maxTasks?: number;
+} & ThisRepoIo;
+
+/** Exit 0 unless the optional runner is asked to execute and a task fails. */
+export async function runThisRepo(options: ThisRepoOptions): Promise<number> {
   const root = resolve(options.root);
   const log = options.log ?? console.log;
+  const logError = options.logError ?? console.error;
 
   log("=== proofloop this-repo: wire the local proof loop on THIS repo ===");
-  log("(This drives YOUR coding agent through you -- it does not auto-launch or run an autonomous fleet.)");
+  log("(Default mode drives YOUR coding agent through you. Add --write-runner-plan or --run to hand off to the local durable runner.)");
   log("");
 
   // 1. Doctor.
@@ -59,8 +72,43 @@ export function runThisRepo(options: { root: string; goal?: string; live?: boole
   log(proofloopKickoffPrompt());
   log("");
 
-  // 4. What to do next -- honest, no auto-run.
-  log("--- Step 4: drive the loop ---");
+  // 4. Optional durable runner handoff for external orchestrators.
+  let runnerPlanPath: string | undefined;
+  if (options.writeRunnerPlan === true || options.run === true) {
+    log("--- Step 4: external runner plan ---");
+    const result = writeProofloopLayeredRunnerPlan(root, { ...(options.goal ? { goal: options.goal } : {}) });
+    runnerPlanPath = result.planPath;
+    log(`proofloop this-repo: wrote ${runnerPlanPath}`);
+    log(
+      [
+        `  mode=${result.plan.mode}`,
+        `setup=${result.plan.summary.setupTasks}`,
+        `capability=${result.plan.summary.capabilityTasks}`,
+        `browser=${result.plan.summary.browserTasks}`,
+        `browserRequiredForAllCapabilityTasks=${result.plan.summary.browserRequiredForAllCapabilityTasks}`,
+      ].join(" "),
+    );
+    log("  run with:");
+    log(`  npx proofloop runner run --plan "${runnerPlanPath.replace(/"/g, '\\"')}"${options.budgetUsd !== undefined ? ` --budget-usd ${options.budgetUsd}` : ""}`);
+    log("");
+  }
+
+  if (options.run === true) {
+    const planPath = runnerPlanPath ?? writeProofloopLayeredRunnerPlan(root, { ...(options.goal ? { goal: options.goal } : {}) }).planPath;
+    const result = await runProofloopRunner({
+      root,
+      subcommand: "run",
+      planPath,
+      ...(options.budgetUsd !== undefined ? { budgetUsd: options.budgetUsd } : {}),
+      ...(options.maxTasks !== undefined ? { maxTasks: options.maxTasks } : {}),
+      log,
+      logError,
+    });
+    return result.exitCode;
+  }
+
+  // 5. What to do next -- honest, no auto-run unless requested.
+  log(options.writeRunnerPlan === true ? "--- Step 5: drive the loop ---" : "--- Step 4: drive the loop ---");
   log("  1. Paste the prompt above into Claude Code / Codex / your agent and let it do the work.");
   log("  2. Add real proof checks to proofloop.config.json gate.checks if you have not yet.");
   log("  3. Run `proofloop gate` -- it exits 0 only when every check passes. That is your proof.");

@@ -17,4 +17,5 @@ export * from "./scaffoldConstants";
 export * from "./project";
 export * from "./mcp";
 export * from "./runner";
+export * from "./layeredPlan";
 export { runCli } from "./cli";
