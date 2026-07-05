@@ -617,7 +617,18 @@ function atomicWriteJson(path: string, value: unknown): void {
   mkdirSync(dirname(path), { recursive: true });
   const temp = `${path}.${process.pid}.${Date.now()}.tmp`;
   writeFileSync(temp, `${JSON.stringify(value, null, 2)}\n`, "utf8");
-  renameSync(temp, path);
+  try {
+    renameSync(temp, path);
+  } catch (error) {
+    if (process.platform !== "win32" || !isReplaceRace(error)) throw error;
+    rmSync(path, { force: true });
+    renameSync(temp, path);
+  }
+}
+
+function isReplaceRace(error: unknown): boolean {
+  const code = typeof error === "object" && error && "code" in error ? String((error as { code?: unknown }).code) : "";
+  return code === "EPERM" || code === "EACCES" || code === "EEXIST";
 }
 
 function readJson<T>(path: string): T | undefined {
