@@ -51,12 +51,13 @@ export type ProofloopRunnerResult = {
 };
 export type ProofloopRunnerOptions = {
     root: string;
-    subcommand: "run" | "resume" | "status";
+    subcommand: "run" | "resume" | "status" | "report";
     planPath?: string;
     runId?: string;
     budgetUsd?: number;
     maxTasks?: number;
     lockTtlMs?: number;
+    clearStaleLock?: boolean;
     json?: boolean;
     crashAfterStartTaskId?: string;
     log?: (message: string) => void;

@@ -128,8 +128,9 @@ script. With neither, it reports `no_gate` with exit code 2. An unconfigured gat
 | `proofloop report latest [--json]` | Summarize the latest gate receipt. |
 | `proofloop charts latest` | Write local JSON/SVG proof charts under `.proofloop/charts/`. |
 | `proofloop runner run --plan <file> --budget-usd 100` | Run an append-only, budgeted task plan under `.proofloop/runner/runs/<runId>/`. |
-| `proofloop runner resume --run-id latest` | Resume a runner after a crash; stale `running` tasks are requeued. |
+| `proofloop runner resume --run-id latest --clear-stale-lock` | Resume a runner after a crash; stale `running` tasks are requeued after explicit stale-lock clearance. |
 | `proofloop runner status --run-id latest [--json]` | Inspect durable runner state and ledger paths. |
+| `proofloop runner report --run-id latest [--json]` | Print the runner honesty report with per-family/per-model pass rate and estimated cost/pass. |
 | `proofloop mcp` | Start the optional read-only MCP server. |
 | `proofloop gate [--check]` | Run configured checks or `npm test`; exit 0 pass, 1 fail, 2 unusable. |
 | `proofloop hooks install\|uninstall\|status` | Install/remove/status Claude Code Stop, PreToolUse, and PostToolUse hooks. |
@@ -171,8 +172,9 @@ This package is the portable core: gate, refuse-fake-done hooks, expected-tool-u
 kickoff prompt, app/worker detection, agent-friendly setup, manifest/docs/script scaffolding,
 UI-contract discovery, local proof charts, and a read-only MCP surface.
 It also includes a generic durable runner for long jobs: append-only ledger,
-atomic state writes, single-flight locks, budget kill-switch, stale-running
-resume, and secret redaction. Bring your app-specific benchmark commands in a
+atomic state writes, single-flight locks, budget kill-switch (exit 3), stale-running
+resume, torn-tail ledger repair, explicit `--clear-stale-lock` recovery, and secret redaction.
+Bring your app-specific benchmark commands in a
 `proofloop-runner-plan-v1` JSON file; the package supervises execution without
 claiming benchmark semantics for you.
 

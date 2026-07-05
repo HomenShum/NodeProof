@@ -107,7 +107,7 @@ function usage(): string {
     "  resume [--dense|--json]    next action from the latest gate receipt",
     "  report latest [--json]     latest gate report",
     "  charts latest              write local JSON/SVG proof charts",
-    "  runner run|resume|status   durable append-only task runner with budget and resume",
+    "  runner run|resume|status|report   durable append-only task runner with budget and resume",
     "  mcp                        start the optional read-only MCP server",
     "  prompt                     print the one-prompt kickoff",
     "  this-repo [--goal <text>] [--write-runner-plan] [--run]",
@@ -323,8 +323,8 @@ function runChartsCommand(sub: string | undefined, root: string): number {
 }
 
 async function runRunnerCommand(sub: string | undefined, options: Record<string, string | boolean>, root: string): Promise<number> {
-  if (sub !== "run" && sub !== "resume" && sub !== "status") {
-    console.error("proofloop runner: expected `run`, `resume`, or `status`.");
+  if (sub !== "run" && sub !== "resume" && sub !== "status" && sub !== "report") {
+    console.error("proofloop runner: expected `run`, `resume`, `status`, or `report`.");
     return 2;
   }
   const result = await runProofloopRunner({
@@ -335,6 +335,7 @@ async function runRunnerCommand(sub: string | undefined, options: Record<string,
     ...(num(options["budget-usd"]) !== undefined ? { budgetUsd: num(options["budget-usd"])! } : {}),
     ...(num(options["max-tasks"]) !== undefined ? { maxTasks: num(options["max-tasks"])! } : {}),
     ...(num(options["lock-ttl-ms"]) !== undefined ? { lockTtlMs: num(options["lock-ttl-ms"])! } : {}),
+    clearStaleLock: options["clear-stale-lock"] === true,
     ...(str(options["crash-after-start"]) !== undefined ? { crashAfterStartTaskId: str(options["crash-after-start"])! } : {}),
     json: options.json === true,
   });
