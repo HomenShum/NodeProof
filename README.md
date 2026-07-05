@@ -17,6 +17,7 @@ npx proofloop doctor --json             # setup checks and fix commands
 npx proofloop manifest --dense          # compact repo status for agents
 npx proofloop ui contract --dense       # stable selectors/actions/assertions
 npx proofloop prompt                    # kickoff prompt to paste into your coding agent
+npx proofloop runner run --plan proofloop.runner.json --budget-usd 100
 npx proofloop gate                      # run checks -> .proofloop/gate-state.json
 ```
 
@@ -106,6 +107,9 @@ script. With neither, it reports `no_gate` with exit code 2. An unconfigured gat
 | `proofloop resume [--json\|--dense]` | Read the latest gate receipt and print the next action. |
 | `proofloop report latest [--json]` | Summarize the latest gate receipt. |
 | `proofloop charts latest` | Write local JSON/SVG proof charts under `.proofloop/charts/`. |
+| `proofloop runner run --plan <file> --budget-usd 100` | Run an append-only, budgeted task plan under `.proofloop/runner/runs/<runId>/`. |
+| `proofloop runner resume --run-id latest` | Resume a runner after a crash; stale `running` tasks are requeued. |
+| `proofloop runner status --run-id latest [--json]` | Inspect durable runner state and ledger paths. |
 | `proofloop mcp` | Start the optional read-only MCP server. |
 | `proofloop gate [--check]` | Run configured checks or `npm test`; exit 0 pass, 1 fail, 2 unusable. |
 | `proofloop hooks install\|uninstall\|status` | Install/remove/status Claude Code Stop, PreToolUse, and PostToolUse hooks. |
@@ -113,6 +117,17 @@ script. With neither, it reports `no_gate` with exit code 2. An unconfigured gat
 | `proofloop ci install github` | Install a GitHub Actions proof gate. |
 | `proofloop prompt` | Print the canonical one-prompt kickoff. |
 | `proofloop this-repo --live` | Run doctor/setup framing and print the local loop contract. |
+
+Minimal runner plan:
+
+```json
+{
+  "schema": "proofloop-runner-plan-v1",
+  "tasks": [
+    { "id": "unit-tests", "command": "npm test", "estimatedCostUsd": 0 }
+  ]
+}
+```
 
 ## Expected-Tool-Use Contracts
 
@@ -134,6 +149,11 @@ server-pinned names mean `mcp__evil__X` cannot impersonate `mcp__composio__X`.
 This package is the portable core: gate, refuse-fake-done hooks, expected-tool-use contracts,
 kickoff prompt, app/worker detection, agent-friendly setup, manifest/docs/script scaffolding,
 UI-contract discovery, local proof charts, and a read-only MCP surface.
+It also includes a generic durable runner for long jobs: append-only ledger,
+atomic state writes, single-flight locks, budget kill-switch, stale-running
+resume, and secret redaction. Bring your app-specific benchmark commands in a
+`proofloop-runner-plan-v1` JSON file; the package supervises execution without
+claiming benchmark semantics for you.
 
 The package does not pretend to know your app's official benchmark or browser flow by default. You
 make that real by putting deterministic checks in `proofloop.config.json`: build, tests, Playwright
@@ -142,6 +162,7 @@ supervises those checks and refuses fake done.
 
 Proof Loop supervises; it does not replace your coding agent. You drive your agent (Claude Code,
 Codex, Cursor, Windsurf, or another worker) and Proof Loop holds the gate. The optional MCP server is
-for compact context surfaces, not a hidden autonomous worker fleet.
+for compact context surfaces, not a hidden autonomous worker fleet; `proofloop runner` is the local
+outer loop for commands you explicitly put in a plan.
 
 MIT (c) Homen Shum
