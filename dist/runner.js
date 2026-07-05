@@ -526,7 +526,19 @@ function atomicWriteJson(path, value) {
     (0, node_fs_1.mkdirSync)((0, node_path_1.dirname)(path), { recursive: true });
     const temp = `${path}.${process.pid}.${Date.now()}.tmp`;
     (0, node_fs_1.writeFileSync)(temp, `${JSON.stringify(value, null, 2)}\n`, "utf8");
-    (0, node_fs_1.renameSync)(temp, path);
+    try {
+        (0, node_fs_1.renameSync)(temp, path);
+    }
+    catch (error) {
+        if (process.platform !== "win32" || !isReplaceRace(error))
+            throw error;
+        (0, node_fs_1.rmSync)(path, { force: true });
+        (0, node_fs_1.renameSync)(temp, path);
+    }
+}
+function isReplaceRace(error) {
+    const code = typeof error === "object" && error && "code" in error ? String(error.code) : "";
+    return code === "EPERM" || code === "EACCES" || code === "EEXIST";
 }
 function readJson(path) {
     if (!(0, node_fs_1.existsSync)(path))
