@@ -111,8 +111,80 @@ script. With neither, it reports `no_gate` with exit code 2. An unconfigured gat
 | `proofloop hooks install\|uninstall\|status` | Install/remove/status Claude Code Stop, PreToolUse, and PostToolUse hooks. |
 | `proofloop tooluse init\|verify` | Declare and verify expected-tool-use contracts. |
 | `proofloop ci install github` | Install a GitHub Actions proof gate. |
+| `proofloop run init --plan <plan.json> [--id <runId>]` | Validate a RunPlan fail-closed and create a durable run under `.proofloop/longrun/<runId>/`. |
+| `proofloop run start\|resume [--run <id>] [--clear-stale-lock]` | Execute/continue the run: budget-enforced, crash-resumable, single-flight locked. Exit 0 all passed / 1 failures / 2 unusable / 3 budget exhausted / 130 interrupted. |
+| `proofloop run status [--run <id>]` | Progress table: done/passed/failed/remaining, spend vs budget, rough ETA, lock state. |
+| `proofloop run report [--run <id>] [--json]` | Per-family and per-model summary (JSON + markdown), shaped to merge into a benchmark matrix ledger. |
 | `proofloop prompt` | Print the canonical one-prompt kickoff. |
 | `proofloop this-repo --live` | Run doctor/setup framing and print the local loop contract. |
+
+## Long-Run Benchmark Runner
+
+`proofloop run` executes a declared plan of hundreds-to-thousands of benchmark attempts
+(model x task x command) over hours or days, on a machine where the process can be killed and the
+internet can drop. It is an executor with receipts, **not a scorer**: a `pass` verdict means "the
+attempt command exited 0" -- proxy product proof. Reports say so explicitly and never claim a model
+winner; official scores still require the official scorer.
+
+A RunPlan is JSON, validated fail-closed (unknown keys, duplicate ids, and secret-looking strings
+are rejected):
+
+```json
+{
+  "budgetUsd": 100,
+  "maxRetries": 2,
+  "concurrency": 1,
+  "attempts": [
+    {
+      "id": "spreadsheetbench-102-20--glm",
+      "family": "spreadsheetbench-v1-full-912",
+      "taskId": "102-20",
+      "model": "z-ai/glm-5.2",
+      "command": ["node", "adapters/run-task.js", "--task", "102-20", "--model", "z-ai/glm-5.2"],
+      "timeoutMs": 600000,
+      "estCostUsd": 0.02
+    }
+  ]
+}
+```
+
+```bash
+npx proofloop run init --plan plan.json     # validate + create .proofloop/longrun/<runId>/
+npx proofloop run start                     # execute in plan order
+# ...machine dies, Ctrl-C, reboot, wifi drops...
+npx proofloop run resume                    # continues from the first non-terminal attempt
+npx proofloop run status                    # progress, spend vs budget, ETA, lock state
+npx proofloop run report                    # per-family / per-model tables + report.json
+```
+
+**Durability.** The ledger (`ledger.jsonl`) is append-only JSONL, fsync'd per record (JSONL rather
+than `node:sqlite` because the package supports Node >= 20 and `node:sqlite` needs >= 22.5). A crash
+can only tear the final line; on resume the torn line is detected, the file is truncated back to its
+last complete record (only while holding the run lock), and the attempt whose verdict was lost simply
+re-runs. An unparseable *non-final* line is real corruption and fails closed (exit 2). Attempts are
+terminal once they pass or exhaust retries -- resume never re-executes them, so a completed attempt
+is billed exactly once.
+
+**Budget.** Enforced on estimates + actuals: before every try, `settled spend + in-flight
+reservations + this try's estCostUsd` must fit within `budgetUsd` (default $100). Each try settles at
+the ACTUAL cost if the child wrote `{"actualCostUsd": n}` to the file named by `$PROOFLOOP_COST_FILE`,
+else at the estimate (the ledger records which, as `costSource`). Crossing the line stops the run
+loudly -- `budget_exhausted` in the ledger, exit code 3 -- never a silent skip. To continue, raise
+`budgetUsd` in the run's `plan.json` copy and `run resume`.
+
+**Locking.** `lock.json` (pid + host + heartbeat, refreshed every 30s) makes runs single-flight. A
+lock is stale when its pid is dead or its heartbeat is older than 5 minutes; stale locks are reported
+by `run status` and cleared only with an explicit `--clear-stale-lock`. A live lock refuses
+start/resume even with the flag. (Cross-host locks can only be judged by heartbeat age.)
+
+**Secrets.** `OPENROUTER_API_KEY` -- or any secret -- is read from the environment by the CHILD
+commands at spawn time; it is never stored in the plan, ledger, or lock. Plan validation rejects
+embedded secret-looking tokens, and captured stdout/stderr tails are redacted (sk-style tokens,
+`KEY=value` assignments with secret-looking names, and any secret-named env value appearing verbatim)
+before they touch the ledger.
+
+Children also receive `$PROOFLOOP_RECEIPT_FILE` (write your proof artifact there and the ledger
+records its path), `$PROOFLOOP_RUN_ID`, `$PROOFLOOP_ATTEMPT_ID`, and `$PROOFLOOP_ATTEMPT_TRY`.
 
 ## Expected-Tool-Use Contracts
 
@@ -133,7 +205,8 @@ server-pinned names mean `mcp__evil__X` cannot impersonate `mcp__composio__X`.
 
 This package is the portable core: gate, refuse-fake-done hooks, expected-tool-use contracts,
 kickoff prompt, app/worker detection, agent-friendly setup, manifest/docs/script scaffolding,
-UI-contract discovery, local proof charts, and a read-only MCP surface.
+UI-contract discovery, local proof charts, a read-only MCP surface, and a durable long-run
+benchmark executor (which executes and records -- it does not score).
 
 The package does not pretend to know your app's official benchmark or browser flow by default. You
 make that real by putting deterministic checks in `proofloop.config.json`: build, tests, Playwright

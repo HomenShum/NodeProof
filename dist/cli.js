@@ -15,6 +15,7 @@ exports.runCli = runCli;
  *   proofloop prompt                   print the one-prompt kickoff
  *   proofloop this-repo [--goal ...]   guided local-loop setup (drives YOUR agent)
  *   proofloop manifest|docs|template|workflow|ui|resume|report|charts|mcp
+ *   proofloop run <init|start|resume|status|report>   durable long-run benchmark executor
  *
  * Exit codes are per-command (documented at each case). Zero runtime deps.
  */
@@ -27,6 +28,7 @@ const prompt_1 = require("./prompt");
 const proofloopHooks_1 = require("./proofloopHooks");
 const proofloopCi_1 = require("./proofloopCi");
 const proofloopToolUse_1 = require("./proofloopToolUse");
+const longrun_1 = require("./longrun");
 const mcp_1 = require("./mcp");
 const project_1 = require("./project");
 exports.MCP_SERVER_RUNNING = -999;
@@ -91,6 +93,9 @@ function usage() {
         "  report latest [--json]     latest gate report",
         "  charts latest              write local JSON/SVG proof charts",
         "  mcp                        start the optional read-only MCP server",
+        "  run init --plan <plan.json> [--id <runId>]   create a durable long-run benchmark run",
+        "  run start|resume [--run <id>] [--clear-stale-lock]   execute/continue it (budget-enforced, crash-resumable)",
+        "  run status|report [--run <id>]   progress table / per-family+per-model summary",
         "  prompt                     print the one-prompt kickoff",
         "  this-repo [--goal <text>]  guided local-loop setup (drives YOUR agent honestly)",
         "",
@@ -148,6 +153,8 @@ function runCli(argv) {
         case "mcp":
             (0, mcp_1.startMcpServer)({ root });
             return exports.MCP_SERVER_RUNNING;
+        case "run":
+            return runRunCommand(positional[1], options, root);
         case "hooks":
             return runHooksCommand(positional[1], options, root);
         case "tooluse":
@@ -267,6 +274,44 @@ function runChartsCommand(sub, root) {
     console.log(`proofloop charts: wrote ${result.svgPath}`);
     return 0;
 }
+/**
+ * `proofloop run <init|start|resume|status|report>` -- the durable long-run
+ * benchmark executor (see src/longrun.ts for the honesty + durability model).
+ * start/resume return a Promise: they execute real child processes for hours.
+ */
+function runRunCommand(sub, options, root) {
+    switch (sub) {
+        case "init":
+            return (0, longrun_1.runLongRunInit)({
+                root,
+                ...(str(options.plan) !== undefined ? { planPath: str(options.plan) } : {}),
+                ...(str(options.id) !== undefined ? { runId: str(options.id) } : {}),
+            });
+        case "start":
+        case "resume":
+            return (0, longrun_1.executeLongRun)({
+                root,
+                mode: sub,
+                ...(str(options.run) !== undefined ? { runId: str(options.run) } : {}),
+                clearStaleLock: options["clear-stale-lock"] === true,
+            });
+        case "status":
+            return (0, longrun_1.runLongRunStatus)({
+                root,
+                ...(str(options.run) !== undefined ? { runId: str(options.run) } : {}),
+                clearStaleLock: options["clear-stale-lock"] === true,
+            });
+        case "report":
+            return (0, longrun_1.runLongRunReport)({
+                root,
+                ...(str(options.run) !== undefined ? { runId: str(options.run) } : {}),
+                json: options.json === true,
+            });
+        default:
+            console.error("proofloop run: expected `init`, `start`, `resume`, `status`, or `report`.");
+            return 2;
+    }
+}
 function runHooksCommand(sub, options, root) {
     switch (sub) {
         case "install": {
@@ -352,8 +397,14 @@ function runCiCommand(sub, provider, root) {
     }
 }
 // Only auto-run when invoked as the CLI entry point, never when imported.
+// `run start`/`run resume` return a Promise (long-running executor); resolve it
+// before exiting so the ledger's final records are always written.
 if (require.main === module) {
-    const code = runCli(process.argv.slice(2));
-    if (code !== exports.MCP_SERVER_RUNNING)
-        process.exit(code);
+    Promise.resolve(runCli(process.argv.slice(2))).then((code) => {
+        if (code !== exports.MCP_SERVER_RUNNING)
+            process.exit(code);
+    }, (error) => {
+        console.error(`proofloop: unexpected error: ${error instanceof Error ? error.message : String(error)}`);
+        process.exit(2);
+    });
 }

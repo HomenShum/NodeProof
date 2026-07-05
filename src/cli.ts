@@ -11,6 +11,7 @@
  *   proofloop prompt                   print the one-prompt kickoff
  *   proofloop this-repo [--goal ...]   guided local-loop setup (drives YOUR agent)
  *   proofloop manifest|docs|template|workflow|ui|resume|report|charts|mcp
+ *   proofloop run <init|start|resume|status|report>   durable long-run benchmark executor
  *
  * Exit codes are per-command (documented at each case). Zero runtime deps.
  */
@@ -28,6 +29,7 @@ import {
 } from "./proofloopHooks";
 import { installProofloopGithubCi } from "./proofloopCi";
 import { runToolUseInit, runToolUseVerify } from "./proofloopToolUse";
+import { executeLongRun, runLongRunInit, runLongRunReport, runLongRunStatus } from "./longrun";
 import { startMcpServer } from "./mcp";
 import {
   buildProofloopProjectManifest,
@@ -107,6 +109,9 @@ function usage(): string {
     "  report latest [--json]     latest gate report",
     "  charts latest              write local JSON/SVG proof charts",
     "  mcp                        start the optional read-only MCP server",
+    "  run init --plan <plan.json> [--id <runId>]   create a durable long-run benchmark run",
+    "  run start|resume [--run <id>] [--clear-stale-lock]   execute/continue it (budget-enforced, crash-resumable)",
+    "  run status|report [--run <id>]   progress table / per-family+per-model summary",
     "  prompt                     print the one-prompt kickoff",
     "  this-repo [--goal <text>]  guided local-loop setup (drives YOUR agent honestly)",
     "",
@@ -117,7 +122,7 @@ function usage(): string {
   ].join("\n");
 }
 
-export function runCli(argv: string[]): number {
+export function runCli(argv: string[]): number | Promise<number> {
   const { positional, options } = parseArgs(argv);
   const command = positional[0];
   const root = resolve(str(options.dir) ?? process.cwd());
@@ -180,6 +185,9 @@ export function runCli(argv: string[]): number {
     case "mcp":
       startMcpServer({ root });
       return MCP_SERVER_RUNNING;
+
+    case "run":
+      return runRunCommand(positional[1], options, root);
 
     case "hooks":
       return runHooksCommand(positional[1], options, root);
@@ -309,6 +317,45 @@ function runChartsCommand(sub: string | undefined, root: string): number {
   return 0;
 }
 
+/**
+ * `proofloop run <init|start|resume|status|report>` -- the durable long-run
+ * benchmark executor (see src/longrun.ts for the honesty + durability model).
+ * start/resume return a Promise: they execute real child processes for hours.
+ */
+function runRunCommand(sub: string | undefined, options: Record<string, string | boolean>, root: string): number | Promise<number> {
+  switch (sub) {
+    case "init":
+      return runLongRunInit({
+        root,
+        ...(str(options.plan) !== undefined ? { planPath: str(options.plan)! } : {}),
+        ...(str(options.id) !== undefined ? { runId: str(options.id)! } : {}),
+      });
+    case "start":
+    case "resume":
+      return executeLongRun({
+        root,
+        mode: sub,
+        ...(str(options.run) !== undefined ? { runId: str(options.run)! } : {}),
+        clearStaleLock: options["clear-stale-lock"] === true,
+      });
+    case "status":
+      return runLongRunStatus({
+        root,
+        ...(str(options.run) !== undefined ? { runId: str(options.run)! } : {}),
+        clearStaleLock: options["clear-stale-lock"] === true,
+      });
+    case "report":
+      return runLongRunReport({
+        root,
+        ...(str(options.run) !== undefined ? { runId: str(options.run)! } : {}),
+        json: options.json === true,
+      });
+    default:
+      console.error("proofloop run: expected `init`, `start`, `resume`, `status`, or `report`.");
+      return 2;
+  }
+}
+
 function runHooksCommand(sub: string | undefined, options: Record<string, string | boolean>, root: string): number {
   switch (sub) {
     case "install": {
@@ -397,7 +444,16 @@ function runCiCommand(sub: string | undefined, provider: string | undefined, roo
 }
 
 // Only auto-run when invoked as the CLI entry point, never when imported.
+// `run start`/`run resume` return a Promise (long-running executor); resolve it
+// before exiting so the ledger's final records are always written.
 if (require.main === module) {
-  const code = runCli(process.argv.slice(2));
-  if (code !== MCP_SERVER_RUNNING) process.exit(code);
+  Promise.resolve(runCli(process.argv.slice(2))).then(
+    (code) => {
+      if (code !== MCP_SERVER_RUNNING) process.exit(code);
+    },
+    (error) => {
+      console.error(`proofloop: unexpected error: ${error instanceof Error ? error.message : String(error)}`);
+      process.exit(2);
+    },
+  );
 }

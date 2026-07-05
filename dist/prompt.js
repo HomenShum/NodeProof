@@ -9,7 +9,15 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PACKAGE_COMMANDS = void 0;
 exports.proofloopKickoffPrompt = proofloopKickoffPrompt;
-/** The set of top-level commands the package CLI implements. */
+/**
+ * The set of top-level commands the package CLI implements.
+ *
+ * `run` is the durable long-run benchmark executor (`proofloop run
+ * init|start|resume|status|report`). It is deliberately NOT advertised in the
+ * kickoff prompt below: the kickoff is the gate loop contract, and the
+ * long-run executor is an operator tool, not something a worker agent should
+ * reach for mid-loop.
+ */
 exports.PACKAGE_COMMANDS = [
     "init",
     "doctor",
@@ -26,6 +34,7 @@ exports.PACKAGE_COMMANDS = [
     "report",
     "charts",
     "mcp",
+    "run",
     "prompt",
     "this-repo",
 ];
