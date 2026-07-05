@@ -43,6 +43,7 @@ import {
   writeProofloopTemplate,
   type ProofloopAgentTarget,
 } from "./project";
+import { runProofloopRunner } from "./runner";
 
 type Flags = { positional: string[]; options: Record<string, string | boolean> };
 export const MCP_SERVER_RUNNING = -999;
@@ -106,6 +107,7 @@ function usage(): string {
     "  resume [--dense|--json]    next action from the latest gate receipt",
     "  report latest [--json]     latest gate report",
     "  charts latest              write local JSON/SVG proof charts",
+    "  runner run|resume|status   durable append-only task runner with budget and resume",
     "  mcp                        start the optional read-only MCP server",
     "  prompt                     print the one-prompt kickoff",
     "  this-repo [--goal <text>]  guided local-loop setup (drives YOUR agent honestly)",
@@ -117,7 +119,7 @@ function usage(): string {
   ].join("\n");
 }
 
-export function runCli(argv: string[]): number {
+export function runCli(argv: string[]): number | Promise<number> {
   const { positional, options } = parseArgs(argv);
   const command = positional[0];
   const root = resolve(str(options.dir) ?? process.cwd());
@@ -176,6 +178,9 @@ export function runCli(argv: string[]): number {
 
     case "charts":
       return runChartsCommand(positional[1], root);
+
+    case "runner":
+      return runRunnerCommand(positional[1], options, root);
 
     case "mcp":
       startMcpServer({ root });
@@ -309,6 +314,25 @@ function runChartsCommand(sub: string | undefined, root: string): number {
   return 0;
 }
 
+async function runRunnerCommand(sub: string | undefined, options: Record<string, string | boolean>, root: string): Promise<number> {
+  if (sub !== "run" && sub !== "resume" && sub !== "status") {
+    console.error("proofloop runner: expected `run`, `resume`, or `status`.");
+    return 2;
+  }
+  const result = await runProofloopRunner({
+    root,
+    subcommand: sub,
+    ...(str(options.plan) !== undefined ? { planPath: str(options.plan)! } : {}),
+    ...(str(options["run-id"]) !== undefined ? { runId: str(options["run-id"])! } : {}),
+    ...(num(options["budget-usd"]) !== undefined ? { budgetUsd: num(options["budget-usd"])! } : {}),
+    ...(num(options["max-tasks"]) !== undefined ? { maxTasks: num(options["max-tasks"])! } : {}),
+    ...(num(options["lock-ttl-ms"]) !== undefined ? { lockTtlMs: num(options["lock-ttl-ms"])! } : {}),
+    ...(str(options["crash-after-start"]) !== undefined ? { crashAfterStartTaskId: str(options["crash-after-start"])! } : {}),
+    json: options.json === true,
+  });
+  return result.exitCode;
+}
+
 function runHooksCommand(sub: string | undefined, options: Record<string, string | boolean>, root: string): number {
   switch (sub) {
     case "install": {
@@ -398,6 +422,10 @@ function runCiCommand(sub: string | undefined, provider: string | undefined, roo
 
 // Only auto-run when invoked as the CLI entry point, never when imported.
 if (require.main === module) {
-  const code = runCli(process.argv.slice(2));
-  if (code !== MCP_SERVER_RUNNING) process.exit(code);
+  Promise.resolve(runCli(process.argv.slice(2))).then((code) => {
+    if (code !== MCP_SERVER_RUNNING) process.exit(code);
+  }).catch((error: unknown) => {
+    console.error(`proofloop: ${error instanceof Error ? error.message : String(error)}`);
+    process.exit(2);
+  });
 }

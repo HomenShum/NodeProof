@@ -22,6 +22,7 @@ export const PACKAGE_COMMANDS = [
   "resume",
   "report",
   "charts",
+  "runner",
   "mcp",
   "prompt",
   "this-repo",
