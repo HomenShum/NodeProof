@@ -1,6 +1,6 @@
 {
   "name": "proofloop",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Bring any coding agent. Proof Loop makes it prove the app works. Portable proof-supervisor CLI: gate + hooks + tool-use contracts + kickoff prompt. Zero runtime dependencies.",
   "keywords": [
     "proof-loop",

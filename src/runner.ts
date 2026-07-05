@@ -10,6 +10,7 @@ import {
   renameSync,
   rmSync,
   statSync,
+  truncateSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -75,12 +76,13 @@ export type ProofloopRunnerResult = {
 
 export type ProofloopRunnerOptions = {
   root: string;
-  subcommand: "run" | "resume" | "status";
+  subcommand: "run" | "resume" | "status" | "report";
   planPath?: string;
   runId?: string;
   budgetUsd?: number;
   maxTasks?: number;
   lockTtlMs?: number;
+  clearStaleLock?: boolean;
   json?: boolean;
   crashAfterStartTaskId?: string;
   log?: (message: string) => void;
@@ -102,17 +104,32 @@ type LockHandle = {
   release: () => void;
 };
 
+type RunnerReportRow = {
+  taskId: string;
+  family: string;
+  model: string;
+  status: ProofloopRunnerTaskStatus;
+  attempts: number;
+  estimatedCostUsd: number;
+  passed: boolean;
+};
+
 const RUNNER_ROOT = ".proofloop/runner";
 const DEFAULT_BUDGET_USD = 100;
 const DEFAULT_LOCK_TTL_MS = 30 * 60_000;
 const DEFAULT_TASK_TIMEOUT_MS = 30 * 60_000;
 const TASK_OUTPUT_CAPTURE_BYTES = 64 * 1024;
+const TOP_LEVEL_PLAN_KEYS = new Set(["schema", "tasks", "mode", "generatedAt", "goal", "summary", "notes"]);
+const TASK_PLAN_KEYS = new Set(["id", "command", "cwd", "env", "estimatedCostUsd", "timeoutMs"]);
+const TOKEN_SECRET_PATTERN = /\b(?:sk-[A-Za-z0-9_-]{8,}|sk_(?:live|test)_[A-Za-z0-9_-]+|ghp_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]+|AIza[0-9A-Za-z_-]{20,})\b/g;
+const SECRET_KEY_VALUE_PATTERN = /\b([A-Za-z0-9_]*(?:TOKEN|KEY|SECRET|PASSWORD|AUTH|CREDENTIAL|COOKIE)[A-Za-z0-9_]*)=([^\s"'\\]+)/gi;
 
 export async function runProofloopRunner(options: ProofloopRunnerOptions): Promise<ProofloopRunnerResult> {
   const root = resolve(options.root);
   const log = options.log ?? console.log;
   const logError = options.logError ?? console.error;
   if (options.subcommand === "status") return runnerStatus(options);
+  if (options.subcommand === "report") return runnerReport(options);
 
   const planPath = resolvePlanPath(root, options);
   const plan = readRunnerPlan(planPath);
@@ -122,7 +139,15 @@ export async function runProofloopRunner(options: ProofloopRunnerOptions): Promi
 
   let lock: LockHandle | undefined;
   try {
-    lock = acquireRunnerLock(runDir, options.lockTtlMs ?? DEFAULT_LOCK_TTL_MS);
+    lock = acquireRunnerLock(runDir, options.lockTtlMs ?? DEFAULT_LOCK_TTL_MS, options.clearStaleLock === true);
+    const repair = repairRunnerLedgerTornTail(runDir);
+    if (repair.repaired) {
+      appendRunnerEvent(runDir, {
+        runId,
+        event: "ledger_torn_tail_repaired",
+        data: repair,
+      });
+    }
     let state = loadOrCreateState(runDir, {
       runId,
       plan,
@@ -238,7 +263,7 @@ export async function runProofloopRunner(options: ProofloopRunnerOptions): Promi
     });
     if (options.json) log(JSON.stringify(state, null, 2));
     else log(formatRunnerStatus(state, runDir));
-    return { state, runDir, ledgerPath, exitCode: state.status === "passed" || state.status === "paused" ? 0 : 1 };
+    return { state, runDir, ledgerPath, exitCode: runnerExitCode(state.status) };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logError(`proofloop runner: ${message}`);
@@ -255,11 +280,17 @@ export async function runProofloopRunner(options: ProofloopRunnerOptions): Promi
 }
 
 export function readRunnerPlan(planPath: string): ProofloopRunnerPlan {
-  const parsed = JSON.parse(readFileSync(planPath, "utf8").replace(/^\uFEFF/, "")) as Partial<ProofloopRunnerPlan>;
+  const raw = readFileSync(planPath, "utf8").replace(/^\uFEFF/, "");
+  rejectEmbeddedPlanSecrets(raw);
+  const parsed = JSON.parse(raw) as Partial<ProofloopRunnerPlan>;
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("runner plan must be an object");
+  rejectUnknownKeys(parsed as Record<string, unknown>, TOP_LEVEL_PLAN_KEYS, "runner plan");
   if (parsed.schema !== "proofloop-runner-plan-v1") throw new Error("runner plan schema must be proofloop-runner-plan-v1");
   if (!Array.isArray(parsed.tasks) || parsed.tasks.length === 0) throw new Error("runner plan must include tasks");
   const ids = new Set<string>();
   const tasks = parsed.tasks.map((task) => {
+    if (!task || typeof task !== "object" || Array.isArray(task)) throw new Error("runner task must be an object");
+    rejectUnknownKeys(task as Record<string, unknown>, TASK_PLAN_KEYS, `runner task ${typeof task.id === "string" ? task.id : "(unknown)"}`);
     if (!task || typeof task.id !== "string" || !task.id.trim()) throw new Error("runner task id is required");
     if (ids.has(task.id)) throw new Error(`duplicate runner task id: ${task.id}`);
     ids.add(task.id);
@@ -418,6 +449,122 @@ function runnerStatus(options: ProofloopRunnerOptions): ProofloopRunnerResult {
   }
 }
 
+function runnerReport(options: ProofloopRunnerOptions): ProofloopRunnerResult {
+  const root = resolve(options.root);
+  const log = options.log ?? console.log;
+  const logError = options.logError ?? console.error;
+  try {
+    const runId = resolveRunId(root, options.runId);
+    const runDir = runnerRunDir(root, runId);
+    const state = readJson<ProofloopRunnerState>(runnerStatePath(runDir));
+    if (!state) throw new Error(`missing runner state for ${runId}`);
+    const plan = readRunnerPlan(state.planPath);
+    const report = buildRunnerReport(state, plan, runDir);
+    log(options.json ? JSON.stringify(report.json, null, 2) : report.text);
+    return { state, runDir, ledgerPath: runnerLedgerPath(runDir), exitCode: 0 };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logError(`proofloop runner: ${message}`);
+    return {
+      state: emptyErrorState(options.runId ?? "latest", options.budgetUsd ?? DEFAULT_BUDGET_USD, message),
+      runDir: runnerRunDir(root, options.runId ?? "latest"),
+      ledgerPath: runnerLedgerPath(runnerRunDir(root, options.runId ?? "latest")),
+      exitCode: 2,
+    };
+  }
+}
+
+function buildRunnerReport(state: ProofloopRunnerState, plan: ProofloopRunnerPlan, runDir: string): { text: string; json: Record<string, unknown> } {
+  const taskById = new Map(plan.tasks.map((task) => [task.id, task]));
+  const rows = state.taskStates.map((taskState) => {
+    const planTask = taskById.get(taskState.id);
+    const family = taskFamily(taskState.id);
+    const model = taskModel(planTask);
+    return {
+      taskId: taskState.id,
+      family,
+      model,
+      status: taskState.status,
+      attempts: taskState.attempts,
+      estimatedCostUsd: taskState.estimatedCostUsd,
+      passed: taskState.status === "passed",
+    };
+  });
+  const familyRows = groupReportRows(rows, (row) => row.family);
+  const modelRows = groupReportRows(rows, (row) => row.model);
+  const counts = statusCounts(state);
+  const json = {
+    schema: "proofloop-runner-report-v1",
+    runId: state.runId,
+    status: state.status,
+    honesty: "Proxy product proof, NOT an official benchmark score. No model winner is claimed by this runner report.",
+    budgetUsd: state.budgetUsd,
+    spentEstimatedUsd: state.spentEstimatedUsd,
+    counts,
+    families: familyRows,
+    models: modelRows,
+    statePath: runnerStatePath(runDir),
+    ledgerPath: runnerLedgerPath(runDir),
+  };
+  const text = [
+    `# ProofLoop Runner Report: ${state.runId}`,
+    "",
+    "Proxy product proof, NOT an official benchmark score. No model winner is claimed by this runner report.",
+    "",
+    `Status: ${state.status}`,
+    `Budget: $${state.budgetUsd.toFixed(4)}; spent_est: $${state.spentEstimatedUsd.toFixed(4)}`,
+    `Tasks: passed=${counts.passed} queued=${counts.queued} running=${counts.running} failed=${counts.failed} blocked_budget=${counts.blocked_budget}`,
+    "",
+    "## Families",
+    "| Family | Passed | Total | Pass rate | Cost/pass |",
+    "|---|---:|---:|---:|---:|",
+    ...familyRows.map((row) => `| ${row.id} | ${row.passed} | ${row.total} | ${percent(row.passRate)} | ${money(row.costPerPassUsd)} |`),
+    "",
+    "## Models",
+    "| Model | Passed | Total | Pass rate | Cost/pass |",
+    "|---|---:|---:|---:|---:|",
+    ...modelRows.map((row) => `| ${row.id} | ${row.passed} | ${row.total} | ${percent(row.passRate)} | ${money(row.costPerPassUsd)} |`),
+    "",
+    `State: ${runnerStatePath(runDir)}`,
+    `Ledger: ${runnerLedgerPath(runDir)}`,
+  ].join("\n");
+  return { text: `${text}\n`, json };
+}
+
+function groupReportRows(
+  rows: RunnerReportRow[],
+  keyFor: (row: RunnerReportRow) => string,
+): Array<{ id: string; passed: number; total: number; passRate: number; estimatedCostUsd: number; costPerPassUsd: number | null }> {
+  const groups = new Map<string, { passed: number; total: number; estimatedCostUsd: number }>();
+  for (const row of rows) {
+    const id = keyFor(row);
+    const current = groups.get(id) ?? { passed: 0, total: 0, estimatedCostUsd: 0 };
+    current.total += 1;
+    if (row.passed) {
+      current.passed += 1;
+      current.estimatedCostUsd = roundMoney(current.estimatedCostUsd + row.estimatedCostUsd);
+    }
+    groups.set(id, current);
+  }
+  return [...groups.entries()].map(([id, row]) => ({
+    id,
+    passed: row.passed,
+    total: row.total,
+    passRate: row.total ? row.passed / row.total : 0,
+    estimatedCostUsd: row.estimatedCostUsd,
+    costPerPassUsd: row.passed > 0 ? roundMoney(row.estimatedCostUsd / row.passed) : null,
+  })).sort((a, b) => a.id.localeCompare(b.id));
+}
+
+function taskFamily(taskId: string): string {
+  return taskId.split(/[.:/]/)[0] || "unknown";
+}
+
+function taskModel(task: ProofloopRunnerTaskPlan | undefined): string {
+  const env = task?.env ?? {};
+  return env.BENCH_AGENT_MODEL_POLICY ?? env.PROOFLOOP_AGENT_MODEL_POLICY ?? env.MODEL ?? env.MODEL_ID ?? "unknown";
+}
+
 function resolvePlanPath(root: string, options: ProofloopRunnerOptions): string {
   if (options.subcommand === "resume") {
     const runId = resolveRunId(root, options.runId);
@@ -512,7 +659,7 @@ function appendRunnerEvent(runDir: string, event: Omit<ProofloopRunnerEvent, "sc
   appendFileSync(runnerLedgerPath(runDir), `${JSON.stringify(full)}\n`, "utf8");
 }
 
-function acquireRunnerLock(runDir: string, ttlMs: number): LockHandle {
+function acquireRunnerLock(runDir: string, ttlMs: number, clearStaleLock: boolean): LockHandle {
   mkdirSync(runDir, { recursive: true });
   const lockPath = join(runDir, "run.lock");
   const token = randomUUID();
@@ -525,6 +672,9 @@ function acquireRunnerLock(runDir: string, ttlMs: number): LockHandle {
     if (code !== "EEXIST") throw error;
     const staleReason = staleLockReason(lockPath, ttlMs);
     if (staleReason) {
+      if (!clearStaleLock) {
+        throw new Error(`runner lock is stale at ${lockPath} (${staleReason}); rerun with --clear-stale-lock to recover`);
+      }
       rmSync(lockPath, { force: true });
       const fd = openSync(lockPath, "wx");
       writeFileSync(fd, JSON.stringify({ token, pid: process.pid, createdAt: nowIso(), stoleStaleLockReason: staleReason }));
@@ -532,6 +682,19 @@ function acquireRunnerLock(runDir: string, ttlMs: number): LockHandle {
     }
     throw new Error(`runner lock is held at ${lockPath}; ageMs=${lockAgeMs(lockPath)}`);
   }
+}
+
+function repairRunnerLedgerTornTail(runDir: string): { repaired: boolean; previousBytes: number; repairedBytes: number } {
+  const ledgerPath = runnerLedgerPath(runDir);
+  if (!existsSync(ledgerPath)) return { repaired: false, previousBytes: 0, repairedBytes: 0 };
+  const raw = readFileSync(ledgerPath, "utf8");
+  const previousBytes = Buffer.byteLength(raw);
+  if (raw.length === 0 || raw.endsWith("\n")) return { repaired: false, previousBytes, repairedBytes: previousBytes };
+  const lastNewline = raw.lastIndexOf("\n");
+  const repaired = lastNewline >= 0 ? raw.slice(0, lastNewline + 1) : "";
+  const repairedBytes = Buffer.byteLength(repaired);
+  truncateSync(ledgerPath, repairedBytes);
+  return { repaired: true, previousBytes, repairedBytes };
 }
 
 function staleLockReason(lockPath: string, ttlMs: number): string | undefined {
@@ -640,6 +803,17 @@ function readJson<T>(path: string): T | undefined {
   }
 }
 
+function rejectUnknownKeys(record: Record<string, unknown>, allowed: Set<string>, label: string): void {
+  for (const key of Object.keys(record)) {
+    if (!allowed.has(key)) throw new Error(`${label} has unknown key "${key}"`);
+  }
+}
+
+function rejectEmbeddedPlanSecrets(raw: string): void {
+  const match = raw.match(TOKEN_SECRET_PATTERN);
+  if (match) throw new Error("runner plan contains an embedded secret-like token; pass secrets through the environment instead");
+}
+
 function emptyErrorState(runId: string, budgetUsd: number, message: string): ProofloopRunnerState {
   return {
     schema: "proofloop-runner-state-v1",
@@ -668,13 +842,28 @@ function statusCounts(state: ProofloopRunnerState): Record<ProofloopRunnerTaskSt
 }
 
 function redactText(value: string, env: NodeJS.ProcessEnv): string {
-  let out = value;
+  let out = value.replace(TOKEN_SECRET_PATTERN, "[redacted:token]");
+  out = out.replace(SECRET_KEY_VALUE_PATTERN, (_match, key: string) => `${key}=[redacted:${key}]`);
   for (const [key, raw] of Object.entries(env)) {
     if (!raw || raw.length < 4) continue;
     if (!/(TOKEN|KEY|SECRET|PASSWORD|AUTH|CREDENTIAL|COOKIE)/i.test(key)) continue;
     out = out.split(raw).join(`[redacted:${key}]`);
   }
   return out;
+}
+
+function runnerExitCode(status: ProofloopRunnerStatus): 0 | 1 | 3 {
+  if (status === "passed" || status === "paused") return 0;
+  if (status === "blocked_budget") return 3;
+  return 1;
+}
+
+function percent(value: number): string {
+  return `${Math.round(value * 100)}%`;
+}
+
+function money(value: number | null): string {
+  return value == null ? "n/a" : `$${value.toFixed(value < 0.01 ? 6 : 4)}`;
 }
 
 function nowIso(): string {
