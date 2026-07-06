@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ProofLoop Live</title>
+    <meta
+      name="description"
+      content="ProofLoop Live helps teams run proof-gated benchmark tasks against a live URL or codebase, with browser traces, scorecards, cost ledgers, and honest official-scorer receipts."
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="site-header" data-testid="site-header">
+      <a class="brand" href="#top" aria-label="ProofLoop Live home">
+        <span class="brand-mark" aria-hidden="true">PL</span>
+        <span>proofloop.live</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary">
+        <a href="#how">How it runs</a>
+        <a href="#artifacts">Artifacts</a>
+        <a href="#start">Start</a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero" data-testid="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Managed proof runs for agentic apps</p>
+          <h1>ProofLoop Live</h1>
+          <p class="hero-text">
+            Give us a live URL or a codebase. We adapt benchmark-style tasks to your product path,
+            run the app under proof gates, and return receipts that separate product proof from
+            official benchmark scores.
+          </p>
+          <div class="hero-actions" aria-label="Primary actions">
+            <a class="button button-primary" href="#start">Start a proof run</a>
+            <a class="button button-secondary" href="https://github.com/HomenShum/proofloop">View CLI</a>
+          </div>
+        </div>
+        <img
+          class="hero-visual"
+          src="/proofloop-live-dashboard.svg"
+          alt="ProofLoop run dashboard showing browser checks, model routes, cost ledger, and proof receipts"
+        />
+      </section>
+
+      <section class="metrics" aria-label="ProofLoop run guarantees">
+        <div>
+          <strong>2 lanes</strong>
+          <span>Headless capability plus live browser certification.</span>
+        </div>
+        <div>
+          <strong>4 receipts</strong>
+          <span>Trace, scorecard, cost ledger, and verifier receipt.</span>
+        </div>
+        <div>
+          <strong>0 fake done</strong>
+          <span>Claims are gated by deterministic checks or explicit scorer contracts.</span>
+        </div>
+      </section>
+
+      <section class="section" id="how">
+        <div class="section-heading">
+          <p class="eyebrow">How it runs</p>
+          <h2>Separate capability checks from user-interface proof.</h2>
+        </div>
+        <div class="lane-grid">
+          <article class="lane">
+            <span class="lane-kicker">01</span>
+            <h3>Adapt the task family</h3>
+            <p>
+              We map benchmark prompts, proxy tasks, and official fixtures into a repo-local runner
+              plan with harness versioning, model routes, budget limits, and restartable ledgers.
+            </p>
+          </article>
+          <article class="lane">
+            <span class="lane-kicker">02</span>
+            <h3>Run capability first</h3>
+            <p>
+              The agent harness checks the task path without multiplying every item through a
+              browser. This is where free or low-cost OpenRouter model sweeps belong.
+            </p>
+          </article>
+          <article class="lane">
+            <span class="lane-kicker">03</span>
+            <h3>Certify the live path</h3>
+            <p>
+              Browser runs prove the real user path: load the public URL, interact through stable
+              selectors, capture traces, and verify visible outcomes on the deployed app.
+            </p>
+          </article>
+          <article class="lane">
+            <span class="lane-kicker">04</span>
+            <h3>Publish receipts</h3>
+            <p>
+              The final report labels each result as product-path proof, proxy benchmark proof, or
+              official scorer output. No runner report is allowed to blur those categories.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section artifacts" id="artifacts">
+        <div class="section-heading">
+          <p class="eyebrow">What you get</p>
+          <h2>Evidence a reviewer can inspect.</h2>
+        </div>
+        <ul class="artifact-list">
+          <li>
+            <strong>Live browser trace</strong>
+            <span>Viewport, interaction log, screenshots, and selector contract failures.</span>
+          </li>
+          <li>
+            <strong>Agent harness ledger</strong>
+            <span>Restartable task state, model policy, estimated spend, and failure history.</span>
+          </li>
+          <li>
+            <strong>Scorecard and cost chart</strong>
+            <span>Pass rate by task family and model, including cost per completed proof.</span>
+          </li>
+          <li>
+            <strong>Official scorer receipt</strong>
+            <span>Only when the upstream scorer or an explicitly recorded judge contract ran.</span>
+          </li>
+        </ul>
+      </section>
+
+      <section class="section start" id="start">
+        <div class="section-heading">
+          <p class="eyebrow">Start</p>
+          <h2>Send a live URL or codebase target.</h2>
+          <p>
+            This form creates a scoped run request you can email. The hosted site does not collect
+            secrets, tokens, or repository credentials in the browser.
+          </p>
+        </div>
+        <div class="start-layout">
+          <form class="intake" data-proofloop-intake data-testid="intake-form">
+            <fieldset class="segmented" aria-label="Target type">
+              <label>
+                <input type="radio" name="mode" value="live-url" checked />
+                <span>Live URL</span>
+              </label>
+              <label>
+                <input type="radio" name="mode" value="codebase" />
+                <span>Codebase</span>
+              </label>
+            </fieldset>
+
+            <label class="field">
+              <span>Target</span>
+              <input
+                name="target"
+                type="text"
+                autocomplete="url"
+                placeholder="https://your-app.com or github.com/org/repo"
+                required
+              />
+            </label>
+
+            <label class="field">
+              <span>Benchmark or task families</span>
+              <input
+                name="families"
+                type="text"
+                placeholder="Accounting, underwriting, spreadsheet, WorkstreamBench"
+              />
+            </label>
+
+            <label class="field">
+              <span>Budget cap</span>
+              <input name="budget" type="number" min="0" step="1" value="100" />
+            </label>
+
+            <label class="field">
+              <span>Reply email</span>
+              <input name="contact" type="email" placeholder="you@company.com" />
+            </label>
+
+            <label class="field">
+              <span>Notes</span>
+              <textarea
+                name="notes"
+                rows="4"
+                placeholder="Login constraints, required browser path, allowed model providers, official scorer requirements"
+              ></textarea>
+            </label>
+
+            <button class="button button-primary" type="submit">Prepare request</button>
+            <p class="form-status" role="status" data-proofloop-status>
+              Fill in the target to generate a request.
+            </p>
+          </form>
+
+          <aside class="request-preview" aria-label="Run request preview">
+            <div class="preview-header">
+              <span>proofloop-live-intake-v1</span>
+              <span data-proofloop-mode>live-url</span>
+            </div>
+            <pre data-proofloop-preview>{
+  "mode": "live-url",
+  "target": "",
+  "budgetUsd": 100
+}</pre>
+          </aside>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <span>ProofLoop Live keeps product proof, proxy benchmarks, and official scorer output separate.</span>
+      <a href="https://github.com/HomenShum/proofloop">github.com/HomenShum/proofloop</a>
+    </footer>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>
