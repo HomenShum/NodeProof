@@ -46,6 +46,9 @@
     const payload = requestPayload();
     modeLabel.textContent = payload.mode;
     preview.textContent = JSON.stringify(payload, null, 2);
+    status.textContent = payload.target
+      ? "Request preview ready. Prepare request opens an email draft."
+      : "Fill in the target to generate a request.";
     return payload;
   }
 
