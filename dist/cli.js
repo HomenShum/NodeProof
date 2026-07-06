@@ -14,7 +14,7 @@ exports.runCli = runCli;
  *   proofloop ci install github        write the GitHub Actions gate workflow
  *   proofloop prompt                   print the one-prompt kickoff
  *   proofloop this-repo [--goal ...] [--write-runner-plan] [--run]
- *   proofloop manifest|docs|template|workflow|ui|resume|report|charts|mcp
+ *   proofloop manifest|docs|template|workflow|ui|resume|report|charts|receipt|mcp
  *
  * Exit codes are per-command (documented at each case). Zero runtime deps.
  */
@@ -27,6 +27,7 @@ const prompt_1 = require("./prompt");
 const proofloopHooks_1 = require("./proofloopHooks");
 const proofloopCi_1 = require("./proofloopCi");
 const proofloopToolUse_1 = require("./proofloopToolUse");
+const receipts_1 = require("./receipts");
 const mcp_1 = require("./mcp");
 const project_1 = require("./project");
 const runner_1 = require("./runner");
@@ -91,6 +92,7 @@ function usage() {
         "  resume [--dense|--json]    next action from the latest gate receipt",
         "  report latest [--json]     latest gate report",
         "  charts latest              write local JSON/SVG proof charts",
+        "  receipt verify --file <path>   verify app-produced proof receipts",
         "  runner run|resume|status|report   durable append-only task runner with budget and resume",
         "  mcp                        start the optional read-only MCP server",
         "  prompt                     print the one-prompt kickoff",
@@ -155,6 +157,8 @@ function runCli(argv) {
             return runReportCommand(positional[1], options, root);
         case "charts":
             return runChartsCommand(positional[1], root);
+        case "receipt":
+            return runReceiptCommand(positional[1], options, root);
         case "runner":
             return runRunnerCommand(positional[1], options, root);
         case "mcp":
@@ -176,6 +180,11 @@ function parseFeatures(value) {
     if (!value)
         return [];
     return value.split(",").map((part) => part.trim()).filter(Boolean);
+}
+function parseReceiptKind(value) {
+    if (value === undefined || value === "nodeagent-ingestion")
+        return "nodeagent-ingestion";
+    return undefined;
 }
 function runManifestCommand(options, root) {
     const manifest = (0, project_1.buildProofloopProjectManifest)(root);
@@ -278,6 +287,30 @@ function runChartsCommand(sub, root) {
     console.log(`proofloop charts: wrote ${result.jsonPath}`);
     console.log(`proofloop charts: wrote ${result.svgPath}`);
     return 0;
+}
+function runReceiptCommand(sub, options, root) {
+    if (sub !== "verify") {
+        console.error("proofloop receipt: expected `verify`.");
+        return 2;
+    }
+    const filePath = str(options.file);
+    if (!filePath) {
+        console.error("proofloop receipt verify: --file <path> is required.");
+        return 2;
+    }
+    const kind = parseReceiptKind(str(options.kind));
+    if (!kind) {
+        console.error("proofloop receipt verify: unsupported --kind. Supported: nodeagent-ingestion.");
+        return 2;
+    }
+    return (0, receipts_1.runReceiptVerify)({
+        root,
+        filePath,
+        kind,
+        ...(num(options["min-documents"]) !== undefined ? { minDocuments: num(options["min-documents"]) } : {}),
+        ...(num(options["min-memory-objects"]) !== undefined ? { minMemoryObjects: num(options["min-memory-objects"]) } : {}),
+        json: options.json === true,
+    });
 }
 async function runRunnerCommand(sub, options, root) {
     if (sub !== "run" && sub !== "resume" && sub !== "status" && sub !== "report") {
