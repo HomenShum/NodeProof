@@ -80,6 +80,16 @@ const PROJECT_TEMPLATES = [
         selectors: ["intake-upload", "risk-score", "policy-evidence", "decision-memo"],
     },
     {
+        id: "nodeagent-ingestion",
+        title: "NodeAgent Document Ingestion",
+        workflow: "Shard sources through a document pool, transform canonical documents through a memory pool, and verify the two-pool receipt.",
+        checks: [
+            { name: "ingestion-smoke", command: "npm run nodeagent:ingestion:smoke" },
+            { name: "ingestion-receipt", command: "npx proofloop receipt verify --file docs/eval/nodeagent-ingestion-orchestrator.json --kind nodeagent-ingestion --min-documents 1 --min-memory-objects 1" },
+        ],
+        selectors: ["source-list", "ingestion-run", "receipt-status", "memory-objects"],
+    },
+    {
         id: "research-dossier",
         title: "Research Dossier",
         workflow: "Research an entity, cite sources, compare alternatives, and produce a reviewable dossier.",

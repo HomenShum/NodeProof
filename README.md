@@ -127,6 +127,7 @@ script. With neither, it reports `no_gate` with exit code 2. An unconfigured gat
 | `proofloop resume [--json\|--dense]` | Read the latest gate receipt and print the next action. |
 | `proofloop report latest [--json]` | Summarize the latest gate receipt. |
 | `proofloop charts latest` | Write local JSON/SVG proof charts under `.proofloop/charts/`. |
+| `proofloop receipt verify --file <path>` | Verify app-produced proof receipts such as NodeAgent ingestion receipts. |
 | `proofloop runner run --plan <file> --budget-usd 100` | Run an append-only, budgeted task plan under `.proofloop/runner/runs/<runId>/`. |
 | `proofloop runner resume --run-id latest --clear-stale-lock` | Resume a runner after a crash; stale `running` tasks are requeued after explicit stale-lock clearance. |
 | `proofloop runner status --run-id latest [--json]` | Inspect durable runner state and ledger paths. |
@@ -165,6 +166,24 @@ npx proofloop tooluse verify --contract tooluse-contract.json
 
 The verifier is fail-closed: a deny-list cannot be certified from an empty or missing log, and
 server-pinned names mean `mcp__evil__X` cannot impersonate `mcp__composio__X`.
+
+## App-Produced Receipts
+
+Proof Loop can gate receipts emitted by app-specific harnesses without owning their internals. For
+NodeRoom's two-pool document ingestion runner:
+
+```bash
+npm run nodeagent:ingestion:smoke
+npx proofloop receipt verify \
+  --file docs/eval/nodeagent-ingestion-orchestrator.json \
+  --kind nodeagent-ingestion \
+  --min-documents 1 \
+  --min-memory-objects 1
+```
+
+The verifier checks the receipt type/version, `ok: true`, document-pool to memory-pool stage order,
+created document and memory-object counts, proof hashes/keys, zero source/chunk failures, and positive
+batch/concurrency config. Failed receipts exit 1, while malformed CLI usage exits 2.
 
 ## Scope
 

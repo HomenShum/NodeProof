@@ -18,4 +18,5 @@ export * from "./project";
 export * from "./mcp";
 export * from "./runner";
 export * from "./layeredPlan";
+export * from "./receipts";
 export { runCli } from "./cli";
