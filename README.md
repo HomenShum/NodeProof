@@ -9,6 +9,16 @@ the gate decides when it is actually done.
 
 Zero runtime dependencies. Node >= 20. Works on any repo.
 
+## ProofLoop Live
+
+`proofloop.live` is the managed-service intake for teams that want Proof Loop run against their app
+without first becoming benchmark-infra experts: send a live URL or a codebase target, choose the
+benchmark or proxy-task families, set a budget cap, and receive proof artifacts from the runner.
+
+The public site is intentionally static. It creates a scoped run request and keeps the same honesty
+boundary as the CLI: product-path proof, proxy benchmark proof, and official scorer output must be
+labeled separately. It does not collect tokens or repository credentials in the browser.
+
 ## Quickstart
 
 ```bash
