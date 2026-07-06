@@ -6,34 +6,45 @@ const root = process.cwd();
 const html = readFileSync(join(root, "public", "index.html"), "utf8");
 const normalizedHtml = html.replace(/\s+/g, " ");
 const script = readFileSync(join(root, "public", "app.js"), "utf8");
+const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
+  version?: string;
+  license?: string;
+};
 const vercelConfig = JSON.parse(readFileSync(join(root, "vercel.json"), "utf8")) as {
   buildCommand?: string;
   outputDirectory?: string;
 };
 
 describe("proofloop.live site", () => {
-  it("publishes an honest managed-service contract for live URL and codebase proof runs", () => {
-    expect(normalizedHtml).toContain("proofloop.live");
-    expect(normalizedHtml).toContain("Give us a live URL or a codebase");
-    expect(normalizedHtml).toContain("Live URL");
-    expect(normalizedHtml).toContain("Codebase");
-    expect(normalizedHtml).toContain("official benchmark scores");
-    expect(normalizedHtml).toContain("product-path proof");
-    expect(normalizedHtml).toContain("official scorer output");
-    expect(normalizedHtml).toContain("does not collect secrets, tokens, or repository credentials");
+  it("leads with the real install command, not a fabricated dashboard", () => {
+    expect(normalizedHtml).toContain("npx proofloop init");
+    expect(normalizedHtml).toContain("npx proofloop gate");
+    expect(normalizedHtml).toContain("The gate decides");
   });
 
-  it("uses a static intake request instead of implying an unbuilt hosted backend", () => {
-    expect(script).toContain("proofloop-live-intake-v1");
-    expect(script).toContain("mailto:hshum2018@gmail.com");
-    expect(script).toContain("requestedArtifacts");
+  it("states the honesty boundary from the CLI without implying an unbuilt hosted backend", () => {
+    expect(normalizedHtml).toContain("product-path proof");
+    expect(normalizedHtml).toContain("proxy benchmark proof");
+    expect(normalizedHtml).toContain("official scorer output");
+    expect(normalizedHtml).toContain("no secrets or credentials collected");
+    expect(normalizedHtml).toContain("mailto:hshum2018@gmail.com");
+  });
+
+  it("shows the real, current package facts instead of a stale or invented version", () => {
+    expect(pkg.version).toBeTruthy();
+    expect(normalizedHtml).toContain(`v${pkg.version}`);
+    expect(normalizedHtml).toContain(pkg.license || "MIT");
+  });
+
+  it("has no client-side network calls or forms that could imply a live backend", () => {
     expect(script).not.toContain("fetch(");
     expect(script).not.toContain("XMLHttpRequest");
+    expect(normalizedHtml).not.toContain("<form");
   });
 
   it("has all deployable static assets and Vercel output wiring", () => {
     expect(existsSync(join(root, "public", "styles.css"))).toBe(true);
-    expect(existsSync(join(root, "public", "proofloop-live-dashboard.svg"))).toBe(true);
+    expect(existsSync(join(root, "public", "app.js"))).toBe(true);
     expect(vercelConfig.buildCommand).toBe("npm run build");
     expect(vercelConfig.outputDirectory).toBe("public");
   });

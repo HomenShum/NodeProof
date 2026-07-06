@@ -32,7 +32,8 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && npm run build:site",
+    "build:site": "node scripts/build-site.mjs",
     "prepublishOnly": "npm run build",
     "pretest": "npm run build",
     "test": "vitest run",
@@ -40,7 +41,13 @@
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
+    "esbuild": "^0.28.1",
     "typescript": "^5.7.2",
     "vitest": "^4.1.9"
+  },
+  "dependencies": {
+    "@webcontainer/api": "^1.6.4",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0"
   }
 }
