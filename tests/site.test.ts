@@ -58,6 +58,14 @@ describe("proofloop.live site", () => {
     expect(script).toContain("/api/hosted/status?runId=");
   });
 
+  it("shows the agent-era maturity report command and levels", () => {
+    expect(normalizedHtml).toContain("Agent-era maturity");
+    expect(normalizedHtml).toContain("npx proofloop maturity --target-level 5 --write");
+    expect(normalizedHtml).toContain("Prompt-era demo");
+    expect(normalizedHtml).toContain("Long-running proof loop");
+    expect(normalizedHtml).toContain("Agent OS / benchmark-ready");
+  });
+
   it("shows the real, current package facts instead of a stale or invented version", () => {
     expect(pkg.version).toBeTruthy();
     expect(normalizedHtml).toContain(`v${pkg.version}`);

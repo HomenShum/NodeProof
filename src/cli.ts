@@ -11,6 +11,7 @@
  *   proofloop prompt                   print the one-prompt kickoff
  *   proofloop target [--url <url>] [--write-runner-plan] [--write-browser-smoke]
  *   proofloop this-repo [--goal ...] [--write-runner-plan] [--run]
+ *   proofloop maturity [--dense|--json|--write] [--target-level 5]
  *   proofloop manifest|docs|template|workflow|ui|resume|report|charts|receipt|mcp
  *
  * Exit codes are per-command (documented at each case). Zero runtime deps.
@@ -59,6 +60,11 @@ import {
   type HostedAuthMode,
   type HostedVisibility,
 } from "./hosted";
+import {
+  assessAgentEraMaturity,
+  formatAgentEraMaturityDense,
+  writeAgentEraMaturityReport,
+} from "./maturity";
 
 type Flags = { positional: string[]; options: Record<string, string | boolean> };
 export const MCP_SERVER_RUNNING = -999;
@@ -126,6 +132,7 @@ function usage(): string {
     "  runner run|resume|status|report   durable append-only task runner with budget and resume",
     "  hosted intake|validate|dashboard|run   create or resume a hosted URL proof packet",
     "  target [--url <url>] [--write-runner-plan] [--write-browser-smoke]   recommend benchmark families and write target/context receipts",
+    "  maturity [--dense|--json|--write] [--target-level 5]   judge agent-era codebase/app maturity and missing layers",
     "  mcp                        start the optional read-only MCP server",
     "  prompt                     print the one-prompt kickoff",
     "  this-repo [--goal <text>] [--write-runner-plan] [--run]",
@@ -216,6 +223,9 @@ export function runCli(argv: string[]): number | Promise<number> {
 
     case "target":
       return runTargetCommand(options, root);
+
+    case "maturity":
+      return runMaturityCommand(options, root);
 
     case "mcp":
       startMcpServer({ root });
@@ -531,6 +541,37 @@ async function runTargetCommand(options: Record<string, string | boolean>, root:
     ...(num(options["timeout-ms"]) !== undefined ? { timeoutMs: num(options["timeout-ms"])! } : {}),
   });
   return result.exitCode;
+}
+
+function runMaturityCommand(options: Record<string, string | boolean>, root: string): number {
+  const targetLevel = num(options["target-level"]);
+  if (options.write === true) {
+    const result = writeAgentEraMaturityReport({
+      root,
+      ...(targetLevel !== undefined ? { targetLevel } : {}),
+      ...(str(options.out) !== undefined ? { outPath: str(options.out)! } : {}),
+    });
+    if (options.json === true) {
+      console.log(JSON.stringify({ markdownPath: result.markdownPath, jsonPath: result.jsonPath, report: result.report }, null, 2));
+    } else {
+      console.log(`proofloop maturity: wrote ${result.markdownPath}`);
+      console.log(`proofloop maturity: wrote ${result.jsonPath}`);
+      console.log(formatAgentEraMaturityDense(result.report));
+    }
+    return 0;
+  }
+  const report = assessAgentEraMaturity({
+    root,
+    ...(targetLevel !== undefined ? { targetLevel } : {}),
+  });
+  if (options.json === true) {
+    console.log(JSON.stringify(report, null, 2));
+  } else if (options.dense === true) {
+    console.log(formatAgentEraMaturityDense(report));
+  } else {
+    console.log(report.reportMarkdown);
+  }
+  return 0;
 }
 
 function runHooksCommand(sub: string | undefined, options: Record<string, string | boolean>, root: string): number {

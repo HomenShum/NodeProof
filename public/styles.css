@@ -628,6 +628,85 @@ code {
   line-height: 1.55;
 }
 
+.maturity {
+  margin-top: 28px;
+  padding: 24px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(217, 119, 87, 0.08), rgba(217, 119, 87, 0.02)),
+    var(--surface);
+}
+
+.maturity h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.maturity p {
+  margin: 12px 0 0;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.maturity-command {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(11, 11, 13, 0.62);
+}
+
+.maturity-command code {
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.maturity-levels {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.maturity-levels li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.maturity-levels span {
+  display: inline-grid;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 6px;
+  background: var(--accent-tint);
+  color: var(--accent-hover);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 800;
+}
+
 .capabilities {
   margin-top: 76px;
   padding-top: 40px;
@@ -775,6 +854,23 @@ button:focus-visible {
   .hosted-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .maturity {
+    padding: 18px;
+  }
+
+  .maturity-command {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .maturity-command .copy-btn {
+    width: 100%;
+  }
+
+  .maturity-levels {
+    grid-template-columns: 1fr;
   }
 
   .capabilities {

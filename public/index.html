@@ -231,6 +231,31 @@ gate: passed<span class="cursor" aria-hidden="true"></span></code></pre>
           <pre class="packet-json" data-hosted-packet aria-label="Hosted run packet preview"></pre>
         </section>
 
+        <section class="maturity" aria-labelledby="maturity-title" data-testid="maturity-report">
+          <p class="eyebrow">Agent-era maturity</p>
+          <h2 id="maturity-title">Know what your app is missing before you ask an agent to finish it</h2>
+          <p>
+            Proof Loop can report whether a codebase is still a prompt-era demo, a deterministic
+            product proof, an agent-ready repo, a live app proof, a long-running proof loop, or a
+            benchmark-ready Agent OS. The report names the missing layers instead of flattening them
+            into one score.
+          </p>
+          <div class="maturity-command">
+            <code>npx proofloop maturity --target-level 5 --write</code>
+            <button class="copy-btn" type="button" data-copy="npx proofloop maturity --target-level 5 --write" data-testid="copy-maturity">
+              Copy
+            </button>
+          </div>
+          <ol class="maturity-levels" aria-label="Agent-era levels">
+            <li><span>0</span>Prompt-era demo</li>
+            <li><span>1</span>Deterministic product proof</li>
+            <li><span>2</span>Agent-ready repo</li>
+            <li><span>3</span>Live app proof</li>
+            <li><span>4</span>Long-running proof loop</li>
+            <li><span>5</span>Agent OS / benchmark-ready</li>
+          </ol>
+        </section>
+
         <section class="capabilities" aria-label="What the gate does">
           <ol>
             <li>

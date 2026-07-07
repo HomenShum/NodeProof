@@ -47,6 +47,7 @@
     "proofloop:target": "npx proofloop target --write-runner-plan",
     "proofloop:hosted": "npx proofloop hosted intake --url https://noderoom.live --app-type agent-app --consent",
     "proofloop:hosted-worker": "node scripts/hosted-worker.mjs --request .proofloop/hosted/queue/latest.json",
+    "proofloop:maturity": "npx proofloop maturity --dense",
     "proofloop:report": "npx proofloop report latest",
     "proofloop:charts": "npx proofloop charts latest"
   },

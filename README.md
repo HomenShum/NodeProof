@@ -59,6 +59,63 @@ writes `proofloop/browser/live-smoke.spec.ts` and a `proofloop:live-smoke` packa
 basic live URL rendering/clickability into a runnable Playwright task while keeping deeper app flows
 and official benchmark scorers explicit.
 
+## Agent-Era Maturity
+
+ProofLoop can also judge where a repo or app sits in the agent era and report what is missing before
+it can honestly claim a higher level of autonomy, benchmark readiness, or hosted proof coverage:
+
+```bash
+npx proofloop maturity --dense
+npx proofloop maturity --target-level 5 --write
+```
+
+`maturity` scans local evidence such as gate checks, CI, agent instructions, protected proof state,
+UI/tool contracts, browser tests, receipts, durable runners, budget/model tracking, hosted worker
+surfaces, benchmark adapters, memory/session-mining signals, and governance boundaries. With
+`--write`, it produces `.proofloop/reports/agent-era-maturity.md` plus a JSON receipt for the next
+human, buyer, or coding agent.
+
+| Level | Stage | What must be real |
+|---:|---|---|
+| 0 | Prompt-era demo | A prototype can exist, but done is still a claim. |
+| 1 | Deterministic product proof | Build/test/lint/typecheck or an explicit ProofLoop gate exists. |
+| 2 | Agent-ready repo | Agent instructions, CI backstop, and protected proof/verifier state exist. |
+| 3 | Live app proof | Stable UI/tool contracts, browser verification, and receipts/artifacts exist. |
+| 4 | Long-running proof loop | Resume, budget, model/cost tracking, hosted worker, status, permission, and dashboard boundaries exist. |
+| 5 | Agent OS / benchmark-ready | Official scorers or judge contracts, model sweeps, memory mining, and governance approvals exist. |
+
+The pattern we see across agent products is a capability reveal wave followed by a failure receipt
+wave. Each new capability creates demand for a stricter control layer:
+
+```mermaid
+flowchart LR
+  A["Prompt-era demo"] --> B["Deterministic gates"]
+  B --> C["Agent docs + proof guardrails"]
+  C --> D["Live browser receipts"]
+  D --> E["Long-running runner"]
+  E --> F["Benchmarks + memory + governance"]
+  A -. "fake done / hallucinated receipts" .-> G["Need proof gate"]
+  C -. "unsafe edits / weakened verifier" .-> H["Need protected proof state"]
+  D -. "UI works locally, fails in prod" .-> I["Need live browser proof"]
+  E -. "runaway loops / stale context / spend" .-> J["Need budget, resume, trace"]
+  F -. "proxy score mistaken for official" .-> K["Need scorer boundary"]
+```
+
+Projection is intentionally boring: move one proof layer at a time and keep proxy proof separate
+from official benchmark output until the scorer path is real.
+
+```mermaid
+xychart-beta
+  title "Agent-era maturity projection"
+  x-axis ["Today", "Next release", "Target"]
+  y-axis "Level" 0 --> 5
+  line [4, 5, 5]
+```
+
+README diagrams use native Mermaid so they render on GitHub without another service. For richer
+source diagrams, use Kroki in the build/rendering pipeline and commit the rendered output; do not
+make the README depend on a live third-party renderer.
+
 ## Quickstart
 
 ```bash
@@ -67,6 +124,7 @@ npx proofloop doctor --json             # setup checks and fix commands
 npx proofloop manifest --dense          # compact repo status for agents
 npx proofloop ui contract --dense       # stable selectors/actions/assertions
 npx proofloop target --write-runner-plan # benchmark plan + context report + runner discovery
+npx proofloop maturity --target-level 5 --write # maturity report + missing layers
 npx proofloop prompt                    # kickoff prompt to paste into your coding agent
 npx proofloop this-repo --goal "proofloop my latest updates" --write-runner-plan
 npx proofloop runner run --plan proofloop.runner.json --budget-usd 100
@@ -180,6 +238,7 @@ script. With neither, it reports `no_gate` with exit code 2. An unconfigured gat
 | `proofloop doctor [--json]` | Report node/git/agent readiness, manifest/docs/scripts, Playwright/browser readiness, GitHub workflow, UI contracts, and fix commands. |
 | `proofloop manifest [--json\|--dense]` | Print project status: stack, commands, proof gates, workflows, UI contracts, blockers. |
 | `proofloop target [--url <url>] [--write-runner-plan] [--write-browser-smoke] [--json]` | Recommend benchmark families from a URL/codebase, detect or scaffold configured adapters, and write target/runner plan receipts plus `.proofloop/reports/latest.md`. |
+| `proofloop maturity [--dense\|--json\|--write] [--target-level 5]` | Report the codebase/app's agent-era maturity level, missing proof layers, next actions, and Mermaid progression/projection charts. |
 | `proofloop docs agents --dense` | Print compact agent workflow instructions. |
 | `proofloop ui contract\|component <id>` | Discover stable `data-testid` and `data-proofloop` selectors. |
 | `proofloop template --list` / `proofloop template <id> --write` | List or write starter proof-loop templates. |

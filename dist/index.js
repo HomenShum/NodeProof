@@ -37,6 +37,7 @@ __exportStar(require("./runner"), exports);
 __exportStar(require("./layeredPlan"), exports);
 __exportStar(require("./targetPlan"), exports);
 __exportStar(require("./hosted"), exports);
+__exportStar(require("./maturity"), exports);
 __exportStar(require("./contextReport"), exports);
 __exportStar(require("./receipts"), exports);
 var cli_1 = require("./cli");
