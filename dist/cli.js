@@ -13,6 +13,7 @@ exports.runCli = runCli;
  *   proofloop tooluse <verify|init>    expected-tool-use contracts
  *   proofloop ci install github        write the GitHub Actions gate workflow
  *   proofloop prompt                   print the one-prompt kickoff
+ *   proofloop target [--url <url>] [--write-runner-plan]
  *   proofloop this-repo [--goal ...] [--write-runner-plan] [--run]
  *   proofloop manifest|docs|template|workflow|ui|resume|report|charts|receipt|mcp
  *
@@ -31,6 +32,7 @@ const receipts_1 = require("./receipts");
 const mcp_1 = require("./mcp");
 const project_1 = require("./project");
 const runner_1 = require("./runner");
+const targetPlan_1 = require("./targetPlan");
 exports.MCP_SERVER_RUNNING = -999;
 /** Parse `--flag`, `--flag value`, `--flag=value`, and positionals. */
 function parseArgs(argv) {
@@ -94,6 +96,7 @@ function usage() {
         "  charts latest              write local JSON/SVG proof charts",
         "  receipt verify --file <path>   verify app-produced proof receipts",
         "  runner run|resume|status|report   durable append-only task runner with budget and resume",
+        "  target [--url <url>] [--write-runner-plan]   recommend benchmark families and write target receipt",
         "  mcp                        start the optional read-only MCP server",
         "  prompt                     print the one-prompt kickoff",
         "  this-repo [--goal <text>] [--write-runner-plan] [--run]",
@@ -161,6 +164,8 @@ function runCli(argv) {
             return runReceiptCommand(positional[1], options, root);
         case "runner":
             return runRunnerCommand(positional[1], options, root);
+        case "target":
+            return runTargetCommand(options, root);
         case "mcp":
             (0, mcp_1.startMcpServer)({ root });
             return exports.MCP_SERVER_RUNNING;
@@ -328,6 +333,18 @@ async function runRunnerCommand(sub, options, root) {
         clearStaleLock: options["clear-stale-lock"] === true,
         ...(str(options["crash-after-start"]) !== undefined ? { crashAfterStartTaskId: str(options["crash-after-start"]) } : {}),
         json: options.json === true,
+    });
+    return result.exitCode;
+}
+async function runTargetCommand(options, root) {
+    const result = await (0, targetPlan_1.runProofloopTarget)({
+        root,
+        ...(str(options.url) !== undefined ? { url: str(options.url) } : {}),
+        ...(str(options.out) !== undefined ? { outPath: str(options.out) } : {}),
+        writeRunnerPlan: options["write-runner-plan"] === true || options.runner === true,
+        json: options.json === true,
+        dense: options.dense === true,
+        ...(num(options["timeout-ms"]) !== undefined ? { timeoutMs: num(options["timeout-ms"]) } : {}),
     });
     return result.exitCode;
 }

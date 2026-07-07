@@ -19,6 +19,19 @@ The public site is intentionally static. It creates a scoped run request and kee
 boundary as the CLI: product-path proof, proxy benchmark proof, and official scorer output must be
 labeled separately. It does not collect tokens or repository credentials in the browser.
 
+The portable CLI now includes the local intake layer that service uses first:
+
+```bash
+npx proofloop target --url https://your-app.example --write-runner-plan
+npx proofloop target --dir . --write-runner-plan
+```
+
+`target` fetches the live URL or scans the codebase, recommends benchmark families with evidence,
+detects any already-configured benchmark/browser scripts, writes
+`.proofloop/target/latest-target-plan.json`, and can write a runnable
+`.proofloop/runner/target.plan.json`. It does not invent official scores; missing adapters and
+official scorer paths are recorded as blockers.
+
 ## Quickstart
 
 ```bash
@@ -26,6 +39,7 @@ npx proofloop init --agent auto --live  # config + manifest + agent docs + scrip
 npx proofloop doctor --json             # setup checks and fix commands
 npx proofloop manifest --dense          # compact repo status for agents
 npx proofloop ui contract --dense       # stable selectors/actions/assertions
+npx proofloop target --write-runner-plan # benchmark-family plan + runnable adapter discovery
 npx proofloop prompt                    # kickoff prompt to paste into your coding agent
 npx proofloop this-repo --goal "proofloop my latest updates" --write-runner-plan
 npx proofloop runner run --plan proofloop.runner.json --budget-usd 100
@@ -130,6 +144,7 @@ script. With neither, it reports `no_gate` with exit code 2. An unconfigured gat
 | `proofloop init --agent auto --live` | Add agent docs, manifest, package aliases, workflows, and rubrics. |
 | `proofloop doctor [--json]` | Report node/git/agent readiness, manifest/docs/scripts, Playwright/browser readiness, GitHub workflow, UI contracts, and fix commands. |
 | `proofloop manifest [--json\|--dense]` | Print project status: stack, commands, proof gates, workflows, UI contracts, blockers. |
+| `proofloop target [--url <url>] [--write-runner-plan] [--json]` | Recommend benchmark families from a URL/codebase, detect configured adapters, and write target/runner plan receipts. |
 | `proofloop docs agents --dense` | Print compact agent workflow instructions. |
 | `proofloop ui contract\|component <id>` | Discover stable `data-testid` and `data-proofloop` selectors. |
 | `proofloop template --list` / `proofloop template <id> --write` | List or write starter proof-loop templates. |
@@ -212,6 +227,12 @@ headless capability checks first, then browser/UI certification checks if the re
 This is the external-orchestrator path for "proofloop my latest repo" style usage. The runner can
 execute that plan locally, but official benchmark meaning still belongs to your app-specific
 scorers and receipts.
+
+`proofloop target` is the next layer for "give ProofLoop a URL or codebase" usage. It matches known
+families such as BankerToolBench/accounting, SpreadsheetBench, FinAuditing/FinMR, Finch,
+WorkstreamBench, underwriting, research copilot, NodeAgent memory ingestion, and live-browser smoke
+tests. It writes evidence and blockers so an agent or managed runner knows what adapter/scorer work
+is still missing before it claims coverage.
 
 The package does not pretend to know your app's official benchmark or browser flow by default. You
 make that real by putting deterministic checks in `proofloop.config.json`: build, tests, Playwright

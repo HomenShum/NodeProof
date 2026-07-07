@@ -25,9 +25,9 @@
         <section class="hero" data-testid="hero">
           <h1>The gate decides<br />when it&rsquo;s <span class="accent">done</span>.</h1>
           <p class="lede">
-            Coding agents write code and say done. Proof Loop is the supervisor that runs a gate
-            against your app and refuses false completion &mdash; bring any agent, one prompt starts
-            the loop.
+            Coding agents write code and say done. Proof Loop is the supervisor that plans the
+            target, runs a gate against your app, and refuses false completion &mdash; bring any
+            agent, one prompt starts the loop.
           </p>
 
           <div class="terminal" aria-label="Example Proof Loop session">
@@ -44,6 +44,10 @@
             <pre class="terminal-body" data-static-terminal><code>$ npx proofloop init --agent auto --live
 &#10003; wrote proofloop.config.json
 &#10003; wrote .proofloop/manifest.json
+
+$ npx proofloop target --write-runner-plan
+&#10003; wrote .proofloop/target/latest-target-plan.json
+&#10003; wrote .proofloop/runner/target.plan.json
 
 $ npx proofloop gate
 &#10003; build   &#10003; tests   &#10003; e2e
@@ -99,8 +103,9 @@ gate: passed<span class="cursor" aria-hidden="true"></span></code></pre>
           <p>
             <strong>proofloop.live</strong> keeps the same honesty boundary as the CLI: product-path
             proof, proxy benchmark proof, and official scorer output are always labeled separately
-            &mdash; never blurred into one claim. Want Proof Loop run against your app without
-            setting up the harness yourself?
+            &mdash; never blurred into one claim. The CLI can now run
+            <code>npx proofloop target --url ...</code> to recommend benchmark families and record
+            missing adapters. Want Proof Loop run against your app without setting up the harness yourself?
             <a href="mailto:hshum2018@gmail.com?subject=ProofLoop%20hosted%20run%20request">Email for early access</a>
             &mdash; no forms, no secrets or credentials collected.
           </p>
