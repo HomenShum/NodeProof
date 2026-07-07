@@ -22,10 +22,24 @@ labeled separately. It does not collect tokens or repository credentials in the 
 The portable CLI now includes the local intake layer that service uses first:
 
 ```bash
+npx proofloop hosted intake --url https://your-app.example --app-type agent-app --budget-usd 10 --consent
+npx proofloop hosted run --request .proofloop/hosted/queue/<run-id>.json
 npx proofloop target --url https://your-app.example --write-runner-plan
 npx proofloop target --url https://your-app.example --write-browser-smoke --write-runner-plan
 npx proofloop target --dir . --write-runner-plan
 ```
+
+`hosted intake` creates the service packet: target URL, app type, auth/session notes, model budget,
+consent, domain permission instructions, generic success criteria, benchmark proxy tasks, artifact
+paths, dashboard HTML, and a queue item. `hosted run` resolves that packet into a managed-worker
+plan. The worker is intentionally outside normal Vercel request limits because real runs need
+long-running Playwright, model calls, retries, screenshots, video, traces, scorecards, and cost
+ledgers.
+
+Hosted runs are blocked until the target is allowlisted or domain-verified through a well-known file
+or DNS TXT token. Auth notes are notes only: do not paste raw passwords, API keys, or production
+secrets into browser intake. Apps behind login use manual-login, test-account, or session-replay
+handoff in the worker.
 
 `target` fetches the live URL or scans the codebase, recommends benchmark families with evidence,
 detects any already-configured benchmark/browser scripts, writes
@@ -181,6 +195,8 @@ script. With neither, it reports `no_gate` with exit code 2. An unconfigured gat
 | `proofloop prompt` | Print the canonical one-prompt kickoff. |
 | `proofloop this-repo --live` | Run doctor/setup framing and print the local loop contract. |
 | `proofloop this-repo --write-runner-plan [--run]` | Generate and optionally execute a two-layer durable runner plan for latest repo/latest updates. |
+| `proofloop hosted intake --url <url> --app-type <type> --consent` | Write a hosted proof packet with consent, domain verification, success contract, benchmark proxy tasks, artifact paths, dashboard, and queue item. |
+| `proofloop hosted run --request <queue-or-bundle.json>` | Convert a hosted packet into the external managed-worker plan that long-running Playwright/model infrastructure executes. |
 
 Minimal runner plan:
 
@@ -249,6 +265,12 @@ families such as BankerToolBench/accounting, SpreadsheetBench, FinAuditing/FinMR
 WorkstreamBench, underwriting, research copilot, NodeAgent memory ingestion, and live-browser smoke
 tests. It writes evidence and blockers so an agent or managed runner knows what adapter/scorer work
 is still missing before it claims coverage.
+
+`proofloop hosted` is the self-serve service layer for "enter any URL and ProofLoop it with
+benchmark tasks." It composes generic app contracts from app type and audience, records consent and
+permission gates, and declares the artifact contract for private/public dashboards. It does not turn
+Proof Loop into a crawler for arbitrary apps: domain permission is a hard blocker before browser
+automation starts.
 
 The package does not pretend to know your app's official benchmark or browser flow by default. You
 make that real by putting deterministic checks in `proofloop.config.json`: build, tests, Playwright

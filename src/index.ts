@@ -19,6 +19,7 @@ export * from "./mcp";
 export * from "./runner";
 export * from "./layeredPlan";
 export * from "./targetPlan";
+export * from "./hosted";
 export * from "./contextReport";
 export * from "./receipts";
 export { runCli } from "./cli";

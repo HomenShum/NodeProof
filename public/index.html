@@ -132,6 +132,100 @@ gate: passed<span class="cursor" aria-hidden="true"></span></code></pre>
           </div>
         </section>
 
+        <section class="hosted-intake" aria-labelledby="hosted-title" data-testid="hosted-intake">
+          <p class="eyebrow">Hosted proof</p>
+          <h2 id="hosted-title">Enter any URL and ProofLoop it with benchmark tasks</h2>
+          <p class="hosted-copy">
+            Build a scoped run packet for proofloop.live: target URL, app type, auth/session notes,
+            model budget, consent, benchmark proxy tasks, generic success contract, and artifact
+            expectations. Browser automation only starts after domain permission is verified.
+          </p>
+
+          <div class="intake-grid">
+            <label>
+              <span>Target URL</span>
+              <input data-hosted-target-url type="url" value="https://noderoom.live" placeholder="https://your-app.example" />
+            </label>
+            <label>
+              <span>App type</span>
+              <select data-hosted-app-type>
+                <option value="agent-app">Agent app</option>
+                <option value="chat-agent">Chat agent</option>
+                <option value="workflow-agent">Workflow agent</option>
+                <option value="spreadsheet-agent">Spreadsheet agent</option>
+                <option value="research-copilot">Research copilot</option>
+                <option value="underwriting-agent">Underwriting agent</option>
+                <option value="accounting-agent">Accounting agent</option>
+                <option value="document-memory">Document memory</option>
+                <option value="custom">Custom</option>
+              </select>
+            </label>
+            <label>
+              <span>Model budget</span>
+              <input data-hosted-budget type="number" min="0" step="1" value="10" />
+            </label>
+            <label>
+              <span>Visibility</span>
+              <select data-hosted-visibility>
+                <option value="private">Private dashboard</option>
+                <option value="public">Public replay links</option>
+              </select>
+            </label>
+            <label class="wide">
+              <span>Auth/session notes</span>
+              <textarea
+                data-hosted-auth-notes
+                rows="3"
+                placeholder="Example: manual login required; use a test account handoff in the worker. Do not paste passwords or API keys here."
+              ></textarea>
+            </label>
+          </div>
+
+          <fieldset class="benchmark-picks">
+            <legend>Benchmark proxy families</legend>
+            <label><input type="checkbox" value="live-browser-smoke" data-hosted-family checked /> Live browser smoke</label>
+            <label><input type="checkbox" value="workstreambench" data-hosted-family /> WorkstreamBench</label>
+            <label><input type="checkbox" value="bankertoolbench" data-hosted-family /> BankerToolBench</label>
+            <label><input type="checkbox" value="spreadsheetbench-v1" data-hosted-family /> SpreadsheetBench V1</label>
+            <label><input type="checkbox" value="spreadsheetbench-v2" data-hosted-family /> SpreadsheetBench V2</label>
+            <label><input type="checkbox" value="finch" data-hosted-family /> Finch</label>
+            <label><input type="checkbox" value="finauditing" data-hosted-family /> FinAuditing</label>
+            <label><input type="checkbox" value="nodeagent-memory-ingestion" data-hosted-family /> Document memory</label>
+          </fieldset>
+
+          <label class="consent-row">
+            <input data-hosted-consent type="checkbox" />
+            <span>
+              I own or am authorized to test this target, and I allow browser automation,
+              screenshots, video, trace, scorecard, and cost receipts for this run.
+            </span>
+          </label>
+
+          <div class="hosted-output" aria-live="polite">
+            <div>
+              <span>Hosted intake command</span>
+              <code data-hosted-command>npx proofloop hosted intake --url https://noderoom.live --app-type agent-app --budget-usd 10 --families live-browser-smoke</code>
+            </div>
+            <button class="copy-btn" type="button" data-hosted-copy data-copy="" data-testid="copy-hosted">Copy</button>
+          </div>
+
+          <div class="packet-preview">
+            <div>
+              <h3>Runner boundary</h3>
+              <p data-hosted-boundary>
+                External managed worker: long-running Playwright, model routing, video, trace,
+                and artifact storage run outside normal Vercel request limits.
+              </p>
+            </div>
+            <div>
+              <h3>Domain permission</h3>
+              <p data-hosted-domain-proof>noderoom.live is allowlisted for dogfood runs.</p>
+            </div>
+          </div>
+
+          <pre class="packet-json" data-hosted-packet aria-label="Hosted run packet preview"></pre>
+        </section>
+
         <section class="capabilities" aria-label="What the gate does">
           <ol>
             <li>
@@ -174,11 +268,9 @@ gate: passed<span class="cursor" aria-hidden="true"></span></code></pre>
           <p>
             <strong>proofloop.live</strong> keeps the same honesty boundary as the CLI: product-path
             proof, proxy benchmark proof, and official scorer output are always labeled separately
-            &mdash; never blurred into one claim. The CLI can now run
-            <code>npx proofloop target --url ...</code> to recommend benchmark families and record
-            missing adapters. Want Proof Loop run against your app without setting up the harness yourself?
-            <a href="mailto:hshum2018@gmail.com?subject=ProofLoop%20hosted%20run%20request">Email for early access</a>
-            &mdash; no forms, no secrets or credentials collected.
+            &mdash; never blurred into one claim. The hosted intake creates a scoped packet for the
+            managed runner; it does not collect raw credentials in the browser. Official benchmark
+            claims still require the official scorer or an explicitly recorded judge contract.
           </p>
         </section>
       </main>

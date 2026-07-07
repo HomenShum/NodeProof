@@ -33,6 +33,7 @@ const mcp_1 = require("./mcp");
 const project_1 = require("./project");
 const runner_1 = require("./runner");
 const targetPlan_1 = require("./targetPlan");
+const hosted_1 = require("./hosted");
 exports.MCP_SERVER_RUNNING = -999;
 /** Parse `--flag`, `--flag value`, `--flag=value`, and positionals. */
 function parseArgs(argv) {
@@ -96,6 +97,7 @@ function usage() {
         "  charts latest              write local JSON/SVG proof charts",
         "  receipt verify --file <path>   verify app-produced proof receipts",
         "  runner run|resume|status|report   durable append-only task runner with budget and resume",
+        "  hosted intake|validate|dashboard|run   create or resume a hosted URL proof packet",
         "  target [--url <url>] [--write-runner-plan] [--write-browser-smoke]   recommend benchmark families and write target/context receipts",
         "  mcp                        start the optional read-only MCP server",
         "  prompt                     print the one-prompt kickoff",
@@ -164,6 +166,8 @@ function runCli(argv) {
             return runReceiptCommand(positional[1], options, root);
         case "runner":
             return runRunnerCommand(positional[1], options, root);
+        case "hosted":
+            return runHostedCommand(positional[1], options, root);
         case "target":
             return runTargetCommand(options, root);
         case "mcp":
@@ -181,7 +185,118 @@ function runCli(argv) {
             return 2;
     }
 }
+function runHostedCommand(sub, options, root) {
+    if (sub === "run") {
+        const requestFile = str(options.request);
+        if (!requestFile) {
+            console.error("proofloop hosted run: expected --request <queue.json|request.json|run-bundle.json>.");
+            return 2;
+        }
+        try {
+            const result = (0, hosted_1.writeHostedWorkerPlan)({
+                root,
+                requestFile,
+                outFile: str(options.out),
+            });
+            if (options.json === true) {
+                console.log(JSON.stringify({ runId: result.bundle.runId, file: result.file, plan: result.plan }, null, 2));
+            }
+            else {
+                console.log([
+                    `proofloop hosted run: ${result.plan.status} (${result.bundle.runId})`,
+                    `target=${result.plan.targetUrl}`,
+                    `worker=${result.plan.worker.mode}`,
+                    `artifactRoot=${result.plan.worker.artifactRoot}`,
+                    `workerPlan=${result.file}`,
+                    ...result.plan.blockers.map((blocker) => `blocked=${blocker}`),
+                    ...result.plan.warnings.map((warning) => `warning=${warning}`),
+                    "",
+                    "Required worker capabilities:",
+                    ...result.plan.worker.requiredCapabilities.map((item) => `- ${item}`),
+                    "",
+                    "Next actions:",
+                    ...result.plan.nextActions.map((item) => `- ${item}`),
+                ].join("\n"));
+            }
+            return result.plan.status === "ready_for_managed_worker" ? 0 : 1;
+        }
+        catch (error) {
+            console.error(`proofloop hosted run: ${error.message}`);
+            return 2;
+        }
+    }
+    const targetUrl = str(options.url);
+    if (!targetUrl) {
+        console.error("proofloop hosted: expected --url <https://app.example>.");
+        return 2;
+    }
+    const appType = (str(options["app-type"]) ?? "agent-app");
+    const authMode = (str(options["auth-mode"]) ?? "none");
+    const visibility = (str(options.visibility) ?? "private");
+    const common = {
+        targetUrl,
+        appType,
+        intendedAudience: str(options.audience),
+        primaryGoal: str(options.goal),
+        authMode,
+        authNotes: str(options["auth-notes"]),
+        budgetUsd: num(options["budget-usd"]) ?? 0,
+        families: parseCsv(str(options.families)),
+        consentAccepted: options.consent === true,
+        ownsOrAuthorized: options.authorized === true || options.consent === true,
+        allowBrowserAutomation: options["allow-browser"] === true || options.consent === true,
+        allowRecording: options.record === true || options.consent === true,
+        contactEmail: str(options.email),
+        visibility,
+        allowlistedHosts: parseCsv(str(options["allow-hosts"])),
+    };
+    if (sub === "validate") {
+        const request = (0, hosted_1.createHostedRunRequest)(common);
+        const validation = (0, hosted_1.validateHostedRunRequest)(request, { allowlistedHosts: common.allowlistedHosts });
+        const permission = (0, hosted_1.verifyHostedDomainPermission)(request, { allowlistedHosts: common.allowlistedHosts });
+        console.log(JSON.stringify({ request, validation, permission }, null, 2));
+        return validation.ok ? 0 : 1;
+    }
+    if (sub === "dashboard") {
+        console.log((0, hosted_1.buildHostedRunBundle)(common).dashboardHtml);
+        return 0;
+    }
+    if (sub === "intake" || sub === undefined) {
+        const result = (0, hosted_1.writeHostedRunBundle)({
+            root,
+            outDir: str(options.out),
+            ...common,
+        });
+        const validation = (0, hosted_1.validateHostedRunRequest)(result.bundle.request, { allowlistedHosts: common.allowlistedHosts });
+        const runbook = (0, hosted_1.renderHostedRunbook)(result.bundle);
+        if (options.json === true) {
+            console.log(JSON.stringify({ runId: result.bundle.runId, validation, files: result.files, bundle: result.bundle }, null, 2));
+        }
+        else {
+            console.log([
+                `proofloop hosted intake: ${validation.ok ? "ready" : "needs-permission"} (${result.bundle.runId})`,
+                `target=${result.bundle.request.targetUrl}`,
+                `appType=${result.bundle.request.appType}`,
+                `permission=${result.bundle.permission.status}`,
+                `queue=${result.bundle.runner.queuePath}`,
+                `dashboard=${result.bundle.artifactContract.dashboard}`,
+                ...validation.blockers.map((blocker) => `blocked=${blocker}`),
+                ...validation.warnings.map((warning) => `warning=${warning}`),
+                "",
+                runbook,
+            ].join("\n"));
+        }
+        return validation.ok ? 0 : 1;
+    }
+    console.error(`proofloop hosted: unknown subcommand "${sub}". Expected intake, validate, dashboard, or run.`);
+    return 2;
+}
 function parseFeatures(value) {
+    if (!value)
+        return [];
+    return value.split(",").map((part) => part.trim()).filter(Boolean);
+}
+function parseCsv(value) {
     if (!value)
         return [];
     return value.split(",").map((part) => part.trim()).filter(Boolean);

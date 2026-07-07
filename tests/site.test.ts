@@ -33,12 +33,26 @@ describe("proofloop.live site", () => {
     expect(script).toContain("npx proofloop target --url");
   });
 
-  it("states the honesty boundary from the CLI without implying an unbuilt hosted backend", () => {
+  it("states the hosted honesty boundary without blurring scorer claims", () => {
     expect(normalizedHtml).toContain("product-path proof");
     expect(normalizedHtml).toContain("proxy benchmark proof");
     expect(normalizedHtml).toContain("official scorer output");
-    expect(normalizedHtml).toContain("no secrets or credentials collected");
-    expect(normalizedHtml).toContain("mailto:hshum2018@gmail.com");
+    expect(normalizedHtml).toContain("managed runner");
+    expect(normalizedHtml).toContain("does not collect raw credentials");
+    expect(normalizedHtml).toContain("explicitly recorded judge contract");
+  });
+
+  it("includes a hosted URL intake packet builder with consent and artifact boundaries", () => {
+    expect(normalizedHtml).toContain("Enter any URL and ProofLoop it with benchmark tasks");
+    expect(normalizedHtml).toContain("Target URL");
+    expect(normalizedHtml).toContain("App type");
+    expect(normalizedHtml).toContain("Auth/session notes");
+    expect(normalizedHtml).toContain("Model budget");
+    expect(normalizedHtml).toContain("Benchmark proxy families");
+    expect(normalizedHtml).toContain("I own or am authorized to test this target");
+    expect(normalizedHtml).toContain("screenshots, video, trace, scorecard");
+    expect(script).toContain("data-hosted-target-url");
+    expect(script).toContain("npx proofloop hosted intake");
   });
 
   it("shows the real, current package facts instead of a stale or invented version", () => {
@@ -47,7 +61,7 @@ describe("proofloop.live site", () => {
     expect(normalizedHtml).toContain(pkg.license || "MIT");
   });
 
-  it("has no client-side network calls or forms that could imply a live backend", () => {
+  it("has no client-side network calls or credential-submitting forms", () => {
     expect(script).not.toContain("fetch(");
     expect(script).not.toContain("XMLHttpRequest");
     expect(normalizedHtml).not.toContain("<form");

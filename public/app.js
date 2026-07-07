@@ -50,4 +50,88 @@
     });
     updateBuilder();
   }
+
+  const hostedUrl = document.querySelector("[data-hosted-target-url]");
+  const hostedAppType = document.querySelector("[data-hosted-app-type]");
+  const hostedBudget = document.querySelector("[data-hosted-budget]");
+  const hostedVisibility = document.querySelector("[data-hosted-visibility]");
+  const hostedAuthNotes = document.querySelector("[data-hosted-auth-notes]");
+  const hostedConsent = document.querySelector("[data-hosted-consent]");
+  const hostedFamilies = Array.from(document.querySelectorAll("[data-hosted-family]"));
+  const hostedCommand = document.querySelector("[data-hosted-command]");
+  const hostedCopy = document.querySelector("[data-hosted-copy]");
+  const hostedPacket = document.querySelector("[data-hosted-packet]");
+  const hostedDomainProof = document.querySelector("[data-hosted-domain-proof]");
+  const allowlistedHosts = new Set(["noderoom.live", "www.noderoom.live", "proofloop.live", "www.proofloop.live"]);
+
+  function shellQuote(value) {
+    return `"${String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+  }
+
+  function safeId(value) {
+    return String(value).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "item";
+  }
+
+  function selectedFamilies() {
+    return hostedFamilies.filter((item) => item.checked).map((item) => item.value);
+  }
+
+  function domainProofFor(rawUrl) {
+    try {
+      const host = new URL(rawUrl).hostname.toLowerCase();
+      const token = `proofloop-domain-${safeId(host)}-verify`;
+      if (allowlistedHosts.has(host) || host === "localhost" || host === "127.0.0.1") {
+        return `${host} is allowlisted for dogfood or owned-product runs.`;
+      }
+      return `Before automation: serve /.well-known/proofloop-domain-verification.txt with ${token}, or publish TXT _proofloop.${host}=${token}.`;
+    } catch {
+      return "Enter a valid https URL to generate the domain verification instruction.";
+    }
+  }
+
+  function updateHostedIntake() {
+    if (!hostedUrl || !hostedAppType || !hostedBudget || !hostedVisibility || !hostedAuthNotes || !hostedConsent || !hostedCommand || !hostedCopy || !hostedPacket || !hostedDomainProof) return;
+    const url = hostedUrl.value.trim() || "https://your-app.example";
+    const families = selectedFamilies();
+    const familyArg = families.length ? ` --families ${shellQuote(families.join(","))}` : "";
+    const consentArg = hostedConsent.checked ? " --consent" : "";
+    const commandText = [
+      "npx proofloop hosted intake",
+      `--url ${shellQuote(url)}`,
+      `--app-type ${hostedAppType.value}`,
+      `--budget-usd ${hostedBudget.value || "0"}`,
+      `--visibility ${hostedVisibility.value}`,
+      familyArg.trim(),
+      consentArg.trim(),
+    ].filter(Boolean).join(" ");
+    hostedCommand.textContent = commandText;
+    hostedCopy.setAttribute("data-copy", commandText);
+    hostedDomainProof.textContent = domainProofFor(url);
+    hostedPacket.textContent = JSON.stringify({
+      targetUrl: url,
+      appType: hostedAppType.value,
+      authMode: hostedAuthNotes.value.trim() ? "manual-login" : "none",
+      authNotesPolicy: "notes only; no raw passwords, API keys, or production secrets",
+      modelBudgetUsd: Number(hostedBudget.value || 0),
+      requestedBenchmarkFamilies: families,
+      consent: {
+        accepted: hostedConsent.checked,
+        ownsOrAuthorized: hostedConsent.checked,
+        allowBrowserAutomation: hostedConsent.checked,
+        allowRecording: hostedConsent.checked,
+      },
+      visibility: hostedVisibility.value,
+      worker: "external-managed-worker",
+      artifacts: ["receipt", "screenshot", "video", "trace", "scorecard", "dashboard"],
+    }, null, 2);
+  }
+
+  if (hostedUrl) {
+    [hostedUrl, hostedAppType, hostedBudget, hostedVisibility, hostedAuthNotes, hostedConsent, ...hostedFamilies].forEach((item) => {
+      if (!item) return;
+      item.addEventListener("input", updateHostedIntake);
+      item.addEventListener("change", updateHostedIntake);
+    });
+    updateHostedIntake();
+  }
 })();
