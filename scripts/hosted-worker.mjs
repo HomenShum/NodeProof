@@ -53,7 +53,7 @@ const context = await browser.newContext({
 const page = await context.newPage();
 page.on("pageerror", (error) => browserProblems.pageErrors.push(String(error.message || error).slice(0, 500)));
 page.on("console", (message) => {
-  if (["error", "warning"].includes(message.type())) browserProblems.consoleProblems.push(`${message.type()}: ${message.text()}`.slice(0, 500));
+  if (message.type() === "error") browserProblems.consoleProblems.push(`${message.type()}: ${message.text()}`.slice(0, 500));
 });
 page.on("requestfailed", (request) => browserProblems.requestFailures.push(`${request.method()} ${request.url()} ${request.failure()?.errorText || ""}`.slice(0, 500)));
 page.on("response", (response) => {
