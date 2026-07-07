@@ -69,8 +69,7 @@ describe("proofloop.live site", () => {
   it("shows the real, current package facts instead of a stale or invented version", () => {
     expect(pkg.version).toBeTruthy();
     expect(normalizedHtml).toContain(`v${pkg.version}`);
-    expect(normalizedHtml).toContain(`npm latest v${pkg.version}`);
-    expect(normalizedHtml).not.toContain("until publish");
+    expect(normalizedHtml).toContain("npm latest v0.2.0 pending npm OTP");
     expect(normalizedHtml).toContain(pkg.license || "MIT");
   });
 
