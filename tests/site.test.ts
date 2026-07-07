@@ -22,6 +22,17 @@ describe("proofloop.live site", () => {
     expect(normalizedHtml).toContain("The gate decides");
   });
 
+  it("includes the guided setup builder with local templates", () => {
+    expect(normalizedHtml).toContain("Build a proof loop");
+    expect(normalizedHtml).toContain("Describe it in your own words");
+    expect(normalizedHtml).toContain("Live URL flow");
+    expect(normalizedHtml).toContain("Accounting agent");
+    expect(normalizedHtml).toContain("Memory pipeline");
+    expect(normalizedHtml).toContain("Research copilot");
+    expect(script).toContain("data-builder-input");
+    expect(script).toContain("npx proofloop target --url");
+  });
+
   it("states the honesty boundary from the CLI without implying an unbuilt hosted backend", () => {
     expect(normalizedHtml).toContain("product-path proof");
     expect(normalizedHtml).toContain("proxy benchmark proof");

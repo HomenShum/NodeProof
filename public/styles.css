@@ -268,6 +268,139 @@ code {
   display: none;
 }
 
+.builder {
+  margin-top: 52px;
+  padding: 24px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.015));
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: var(--accent-hover);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.builder h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 26px;
+  line-height: 1.18;
+  font-weight: 700;
+}
+
+.builder-copy {
+  margin: 12px 0 20px;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.prompt-box {
+  display: grid;
+  gap: 8px;
+}
+
+.prompt-box span,
+.builder-output span {
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.prompt-box textarea {
+  width: 100%;
+  min-height: 112px;
+  resize: vertical;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: rgba(11, 11, 13, 0.72);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.55;
+  padding: 12px 14px;
+}
+
+.prompt-box textarea::placeholder {
+  color: var(--text-dim);
+}
+
+.prompt-box textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.template-card {
+  min-height: 96px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+
+.template-card:hover,
+.template-card:focus-visible,
+.template-card[data-selected="true"] {
+  border-color: var(--accent);
+  background: var(--accent-tint);
+  transform: translateY(-1px);
+}
+
+.template-card span {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.template-card small {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.builder-output {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(11, 11, 13, 0.62);
+}
+
+.builder-output div {
+  min-width: 0;
+}
+
+.builder-output code {
+  display: block;
+  margin-top: 6px;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
 .capabilities {
   margin-top: 76px;
   padding-top: 40px;
@@ -375,6 +508,23 @@ button:focus-visible {
 
   .terminal-body {
     font-size: 12px;
+  }
+
+  .builder {
+    padding: 18px;
+  }
+
+  .template-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .builder-output {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .builder-output .copy-btn {
+    width: 100%;
   }
 
   .capabilities {
