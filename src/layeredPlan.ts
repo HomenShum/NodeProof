@@ -59,6 +59,19 @@ const BROWSER_PATTERNS = [
   /\bwebdriver\b/i,
 ];
 
+const LONG_RUNNING_SCRIPT_PARTS = new Set(["dev", "preview", "serve", "start", "watch"]);
+
+const LONG_RUNNING_COMMAND_PATTERNS = [
+  /\b--watch\b/i,
+  /\b--ui\b/i,
+  /\bnext\s+dev\b/i,
+  /\bnuxt\s+dev\b/i,
+  /\bremix\s+dev\b/i,
+  /\btsx\s+watch\b/i,
+  /\bts-node-dev\b/i,
+  /\bturbo\s+dev\b/i,
+];
+
 export function buildProofloopLayeredRunnerPlan(rootInput: string, options: { goal?: string } = {}): ProofloopLayeredRunnerPlan {
   const root = resolve(rootInput);
   const scripts = readPackageScripts(root);
@@ -72,6 +85,7 @@ export function buildProofloopLayeredRunnerPlan(rootInput: string, options: { go
 
   const scriptEntries = Object.entries(scripts).sort(([a], [b]) => scoreScript(a) - scoreScript(b) || a.localeCompare(b));
   for (const [name, command] of scriptEntries) {
+    if (looksLikeLongRunningScript(name, command)) continue;
     if (!looksLikeCapabilityScript(name, command)) continue;
     addTask(tasks, {
       id: `capability.${toTaskId(name)}`,
@@ -87,6 +101,7 @@ export function buildProofloopLayeredRunnerPlan(rootInput: string, options: { go
   });
 
   for (const [name, command] of scriptEntries) {
+    if (looksLikeLongRunningScript(name, command)) continue;
     if (!looksLikeBrowserScript(name, command)) continue;
     addTask(tasks, {
       id: `browser.${toTaskId(name)}`,
@@ -154,6 +169,12 @@ function looksLikeCapabilityScript(name: string, command: string): boolean {
   const parts = name.split(/[:/_-]/g).filter(Boolean);
   if (parts.some((part) => CAPABILITY_SCRIPT_NAMES.has(part))) return true;
   return CAPABILITY_COMMAND_PATTERNS.some((pattern) => pattern.test(command));
+}
+
+function looksLikeLongRunningScript(name: string, command: string): boolean {
+  const parts = name.split(/[:/_-]/g).filter(Boolean);
+  if (parts.some((part) => LONG_RUNNING_SCRIPT_PARTS.has(part))) return true;
+  return LONG_RUNNING_COMMAND_PATTERNS.some((pattern) => pattern.test(command));
 }
 
 function addTask(tasks: ProofloopRunnerTaskPlan[], task: ProofloopRunnerTaskPlan): void {

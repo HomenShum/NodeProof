@@ -84,6 +84,9 @@ That writes `.proofloop/runner/latest-updates.plan.json` in two layers:
 - Capability checks: headless build/test/typecheck/lint/gate tasks.
 - Browser certification checks: discovered e2e/browser/Playwright/Cypress tasks.
 
+Watch/dev/preview/server scripts are intentionally skipped; long-running services should be started
+by your app-specific harness, not as proof tasks that never terminate.
+
 Browser verification is not forced through every capability task. Use the local durable runner when
 you want the CLI to execute the plan with append-only state, budget control, and resume:
 

@@ -25,7 +25,10 @@ function writePackage(root: string): void {
         name: "demo-agent-app",
         scripts: {
           build: "node -e 0",
+          dev: "vite --host 0.0.0.0",
+          preview: "vite preview",
           test: "vitest run",
+          "test:watch": "vitest",
           "test:e2e": "playwright test",
           "proofloop:browser": "playwright test e2e/proofloop.spec.ts",
         },
@@ -55,6 +58,8 @@ describe("two-layer runner plan", () => {
     expect(result.plan.tasks.find((task) => task.id === "capability.gate")?.command).toBe("npx proofloop gate");
     expect(result.plan.tasks.find((task) => task.id === "browser.test-e2e")?.command).toBe("npm run test:e2e");
     expect(result.plan.tasks.find((task) => task.id === "browser.proofloop-browser")?.command).toBe("npm run proofloop:browser");
+    expect(result.plan.tasks.some((task) => task.id.includes("watch"))).toBe(false);
+    expect(result.plan.tasks.some((task) => task.id === "capability.dev" || task.id === "capability.preview")).toBe(false);
   });
 
   it("lets this-repo write the durable plan an external orchestrator can run", async () => {

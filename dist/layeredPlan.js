@@ -34,6 +34,17 @@ const BROWSER_PATTERNS = [
     /\bselenium\b/i,
     /\bwebdriver\b/i,
 ];
+const LONG_RUNNING_SCRIPT_PARTS = new Set(["dev", "preview", "serve", "start", "watch"]);
+const LONG_RUNNING_COMMAND_PATTERNS = [
+    /\b--watch\b/i,
+    /\b--ui\b/i,
+    /\bnext\s+dev\b/i,
+    /\bnuxt\s+dev\b/i,
+    /\bremix\s+dev\b/i,
+    /\btsx\s+watch\b/i,
+    /\bts-node-dev\b/i,
+    /\bturbo\s+dev\b/i,
+];
 function buildProofloopLayeredRunnerPlan(rootInput, options = {}) {
     const root = (0, node_path_1.resolve)(rootInput);
     const scripts = readPackageScripts(root);
@@ -45,6 +56,8 @@ function buildProofloopLayeredRunnerPlan(rootInput, options = {}) {
     });
     const scriptEntries = Object.entries(scripts).sort(([a], [b]) => scoreScript(a) - scoreScript(b) || a.localeCompare(b));
     for (const [name, command] of scriptEntries) {
+        if (looksLikeLongRunningScript(name, command))
+            continue;
         if (!looksLikeCapabilityScript(name, command))
             continue;
         addTask(tasks, {
@@ -59,6 +72,8 @@ function buildProofloopLayeredRunnerPlan(rootInput, options = {}) {
         timeoutMs: CAPABILITY_TASK_TIMEOUT_MS,
     });
     for (const [name, command] of scriptEntries) {
+        if (looksLikeLongRunningScript(name, command))
+            continue;
         if (!looksLikeBrowserScript(name, command))
             continue;
         addTask(tasks, {
@@ -120,6 +135,12 @@ function looksLikeCapabilityScript(name, command) {
     if (parts.some((part) => CAPABILITY_SCRIPT_NAMES.has(part)))
         return true;
     return CAPABILITY_COMMAND_PATTERNS.some((pattern) => pattern.test(command));
+}
+function looksLikeLongRunningScript(name, command) {
+    const parts = name.split(/[:/_-]/g).filter(Boolean);
+    if (parts.some((part) => LONG_RUNNING_SCRIPT_PARTS.has(part)))
+        return true;
+    return LONG_RUNNING_COMMAND_PATTERNS.some((pattern) => pattern.test(command));
 }
 function addTask(tasks, task) {
     const existing = new Set(tasks.map((entry) => entry.id));

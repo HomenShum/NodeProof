@@ -30,6 +30,7 @@ function writeAccountingRepo(root: string): void {
         description: "Accounting workflow UI for trial balance, reconciliation, and spreadsheet workbooks.",
         scripts: {
           test: "node -e 0",
+          "test:watch": "vitest",
           "benchmark:accounting": "node scripts/run-accounting-benchmark.mjs",
           "test:e2e": "playwright test",
         },
@@ -73,6 +74,7 @@ describe("proofloop target planner", () => {
     expect(plan.summary.officialScoreReady).toBe(false);
     expect(plan.blocked.join("\n")).toContain("Official benchmark scoring is not ready");
     expect(plan.runnerPlan?.tasks.some((task) => task.id === "benchmark.bankertoolbench.benchmark-accounting")).toBe(true);
+    expect(plan.runnerPlan?.tasks.some((task) => task.id.includes("watch"))).toBe(false);
   });
 
   it("fetches a live URL, recommends benchmark families, and records missing browser automation separately", async () => {
