@@ -9,7 +9,7 @@
  *   proofloop tooluse <verify|init>    expected-tool-use contracts
  *   proofloop ci install github        write the GitHub Actions gate workflow
  *   proofloop prompt                   print the one-prompt kickoff
- *   proofloop target [--url <url>] [--write-runner-plan]
+ *   proofloop target [--url <url>] [--write-runner-plan] [--write-browser-smoke]
  *   proofloop this-repo [--goal ...] [--write-runner-plan] [--run]
  *   proofloop manifest|docs|template|workflow|ui|resume|report|charts|receipt|mcp
  *
@@ -112,7 +112,7 @@ function usage(): string {
     "  charts latest              write local JSON/SVG proof charts",
     "  receipt verify --file <path>   verify app-produced proof receipts",
     "  runner run|resume|status|report   durable append-only task runner with budget and resume",
-    "  target [--url <url>] [--write-runner-plan]   recommend benchmark families and write target receipt",
+    "  target [--url <url>] [--write-runner-plan] [--write-browser-smoke]   recommend benchmark families and write target receipt",
     "  mcp                        start the optional read-only MCP server",
     "  prompt                     print the one-prompt kickoff",
     "  this-repo [--goal <text>] [--write-runner-plan] [--run]",
@@ -392,6 +392,7 @@ async function runTargetCommand(options: Record<string, string | boolean>, root:
     ...(str(options.url) !== undefined ? { url: str(options.url)! } : {}),
     ...(str(options.out) !== undefined ? { outPath: str(options.out)! } : {}),
     writeRunnerPlan: options["write-runner-plan"] === true || options.runner === true,
+    writeBrowserSmoke: options["write-browser-smoke"] === true,
     json: options.json === true,
     dense: options.dense === true,
     ...(num(options["timeout-ms"]) !== undefined ? { timeoutMs: num(options["timeout-ms"])! } : {}),

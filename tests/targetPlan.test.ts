@@ -111,6 +111,45 @@ describe("proofloop target planner", () => {
     expect(result.plan.blocked.join("\n")).toContain("no Playwright/Cypress/browser script");
     expect(logs.join("\n")).toContain('"schema": "proofloop-target-plan-v1"');
   });
+
+  it("can scaffold a Playwright live-smoke adapter for a URL target", async () => {
+    const root = tempRoot();
+    writeFileSync(
+      join(root, "package.json"),
+      JSON.stringify(
+        {
+          name: "live-target-app",
+          scripts: { test: "node -e 0" },
+          devDependencies: { "@playwright/test": "1.48.0" },
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+    const url = await startServer("<html><body><a href='/next'>Open</a><button>Run</button><main>Workflow room</main></body></html>");
+
+    const result = await runProofloopTarget({
+      root,
+      url,
+      writeBrowserSmoke: true,
+      writeRunnerPlan: true,
+      log: () => {},
+      logError: () => {},
+    });
+
+    const specPath = join(root, "proofloop", "browser", "live-smoke.spec.ts");
+    const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as { scripts: Record<string, string> };
+    const browser = result.plan.recommendations.find((entry) => entry.id === "live-browser-smoke");
+
+    expect(existsSync(specPath)).toBe(true);
+    expect(readFileSync(specPath, "utf8")).toContain(url);
+    expect(pkg.scripts["proofloop:live-smoke"]).toBe("playwright test proofloop/browser/live-smoke.spec.ts");
+    expect(browser?.adapterStatus).toBe("configured");
+    expect(result.plan.generatedFiles.map((file) => file.replace(/\\/g, "/")).join("\n")).toContain("proofloop/browser/live-smoke.spec.ts");
+    expect(result.plan.blocked.join("\n")).not.toContain("no Playwright/Cypress/browser script");
+    expect(result.plan.runnerPlan?.tasks.some((task) => task.command === "npm run proofloop:live-smoke")).toBe(true);
+  });
 });
 
 function startServer(html: string): Promise<string> {

@@ -129,6 +129,7 @@ async function runProofloopTarget(options) {
 }
 async function writeProofloopTargetPlan(options) {
     const root = (0, node_path_1.resolve)(options.root);
+    const generatedFiles = options.writeBrowserSmoke && options.url ? writeBrowserSmokeScaffold(root, normalizeUrl(options.url)) : [];
     const codebaseSignals = (0, node_fs_1.existsSync)((0, node_path_1.join)(root, "package.json")) ? readCodebaseSignals(root) : undefined;
     const urlSignals = options.url ? await readUrlSignals(options.url, options.timeoutMs ?? DEFAULT_TIMEOUT_MS) : undefined;
     if (!codebaseSignals && !urlSignals)
@@ -137,6 +138,7 @@ async function writeProofloopTargetPlan(options) {
         root,
         codebaseSignals,
         urlSignals,
+        generatedFiles,
     });
     const planPath = (0, node_path_1.resolve)(root, options.outPath ?? DEFAULT_TARGET_PLAN_PATH);
     writeJson(planPath, plan);
@@ -185,6 +187,7 @@ function buildProofloopTargetPlan(args) {
         },
         recommendations,
         ...(runnerPlan.tasks.length > 0 ? { runnerPlan } : {}),
+        generatedFiles: args.generatedFiles ?? [],
         blocked,
         nextActions: buildNextActions(recommendations, args.urlSignals, runnerPlan.tasks.length > 0),
         honesty: "This is benchmark-family targeting and runnable-plan discovery, not an official benchmark score. Official claims require the configured upstream scorer or an explicitly recorded equivalent judge contract.",
@@ -251,6 +254,8 @@ function formatProofloopTargetPlanDense(plan, planPath, runnerPlanPath) {
         for (const evidence of rec.evidence.slice(0, 3))
             lines.push(`  evidence=${evidence}`);
     }
+    for (const file of plan.generatedFiles.slice(0, 8))
+        lines.push(`generated=${file}`);
     for (const blocked of plan.blocked.slice(0, 8))
         lines.push(`blocked=${blocked}`);
     for (const action of plan.nextActions.slice(0, 6))
@@ -327,9 +332,12 @@ function buildTargetRunnerPlan(root, recommendations, scripts, url) {
     }
     for (const recommendation of recommendations) {
         for (const script of recommendation.configuredScripts) {
+            const command = `npm run ${quoteNpmScriptName(script.name)}`;
+            if (tasks.some((task) => task.command === command))
+                continue;
             addTask(tasks, {
                 id: `benchmark.${toTaskId(recommendation.id)}.${toTaskId(script.name)}`,
-                command: `npm run ${quoteNpmScriptName(script.name)}`,
+                command,
                 env: {
                     PROOFLOOP_BENCHMARK_FAMILY: recommendation.id,
                     PROOFLOOP_TARGET_OFFICIAL_SCORE_STATUS: recommendation.officialScoreStatus,
@@ -503,6 +511,37 @@ function uniqueEvidence(values) {
 function hasBrowserScript(scripts) {
     return Object.entries(scripts).some(([name, command]) => /\b(browser|playwright|cypress|puppeteer|selenium|webdriver|e2e)\b/i.test(`${name} ${command}`));
 }
+function writeBrowserSmokeScaffold(root, url) {
+    const packagePath = (0, node_path_1.join)(root, "package.json");
+    if (!(0, node_fs_1.existsSync)(packagePath))
+        return [];
+    const specPath = (0, node_path_1.join)(root, "proofloop", "browser", "live-smoke.spec.ts");
+    const pkg = readPackageJson(root);
+    const scripts = pkg.scripts && typeof pkg.scripts === "object" && !Array.isArray(pkg.scripts) ? { ...pkg.scripts } : {};
+    scripts["proofloop:live-smoke"] = "playwright test proofloop/browser/live-smoke.spec.ts";
+    pkg.scripts = scripts;
+    (0, node_fs_1.mkdirSync)((0, node_path_1.dirname)(specPath), { recursive: true });
+    (0, node_fs_1.writeFileSync)(specPath, browserSmokeSpec(url), "utf8");
+    (0, node_fs_1.writeFileSync)(packagePath, `${JSON.stringify(pkg, null, 2)}\n`, "utf8");
+    return [specPath, packagePath];
+}
+function browserSmokeSpec(url) {
+    return [
+        "import { expect, test } from '@playwright/test';",
+        "",
+        `const targetUrl = process.env.PROOFLOOP_TARGET_URL ?? ${JSON.stringify(url)};`,
+        "",
+        "test('ProofLoop live URL smoke', async ({ page }) => {",
+        "  const response = await page.goto(targetUrl, { waitUntil: 'domcontentloaded' });",
+        "  expect(response?.ok(), `expected ${targetUrl} to return a 2xx/3xx response`).toBeTruthy();",
+        "  await expect(page.locator('body')).toBeVisible();",
+        "  await expect(page.locator('body')).not.toHaveText('');",
+        "  const interactive = page.locator('a[href], button, input, textarea, select, [role=\"button\"], [data-testid], [data-proofloop]');",
+        "  expect(await interactive.count(), 'expected at least one interactive or proof-selectable element').toBeGreaterThan(0);",
+        "});",
+        "",
+    ].join("\n");
+}
 function addTask(tasks, task) {
     const existing = new Set(tasks.map((entry) => entry.id));
     if (!existing.has(task.id)) {
@@ -541,6 +580,7 @@ function emptyTargetPlan(root, url) {
             runnerPlanReady: false,
         },
         recommendations: [],
+        generatedFiles: [],
         blocked: ["target planning failed before a receipt could be produced"],
         nextActions: ["Fix the CLI input or local repo setup, then rerun `npx proofloop target`."],
         honesty: "No benchmark proof was produced.",
