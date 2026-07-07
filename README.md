@@ -23,6 +23,7 @@ The portable CLI now includes the local intake layer that service uses first:
 
 ```bash
 npx proofloop target --url https://your-app.example --write-runner-plan
+npx proofloop target --url https://your-app.example --write-browser-smoke --write-runner-plan
 npx proofloop target --dir . --write-runner-plan
 ```
 
@@ -31,6 +32,11 @@ detects any already-configured benchmark/browser scripts, writes
 `.proofloop/target/latest-target-plan.json`, and can write a runnable
 `.proofloop/runner/target.plan.json`. It does not invent official scores; missing adapters and
 official scorer paths are recorded as blockers.
+
+When `--write-browser-smoke` is provided with `--url` in a repo with `package.json`, Proof Loop
+writes `proofloop/browser/live-smoke.spec.ts` and a `proofloop:live-smoke` package script. That turns
+basic live URL rendering/clickability into a runnable Playwright task while keeping deeper app flows
+and official benchmark scorers explicit.
 
 ## Quickstart
 
@@ -147,7 +153,7 @@ script. With neither, it reports `no_gate` with exit code 2. An unconfigured gat
 | `proofloop init --agent auto --live` | Add agent docs, manifest, package aliases, workflows, and rubrics. |
 | `proofloop doctor [--json]` | Report node/git/agent readiness, manifest/docs/scripts, Playwright/browser readiness, GitHub workflow, UI contracts, and fix commands. |
 | `proofloop manifest [--json\|--dense]` | Print project status: stack, commands, proof gates, workflows, UI contracts, blockers. |
-| `proofloop target [--url <url>] [--write-runner-plan] [--json]` | Recommend benchmark families from a URL/codebase, detect configured adapters, and write target/runner plan receipts. |
+| `proofloop target [--url <url>] [--write-runner-plan] [--write-browser-smoke] [--json]` | Recommend benchmark families from a URL/codebase, detect or scaffold configured adapters, and write target/runner plan receipts. |
 | `proofloop docs agents --dense` | Print compact agent workflow instructions. |
 | `proofloop ui contract\|component <id>` | Discover stable `data-testid` and `data-proofloop` selectors. |
 | `proofloop template --list` / `proofloop template <id> --write` | List or write starter proof-loop templates. |

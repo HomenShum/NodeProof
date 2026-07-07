@@ -37,6 +37,7 @@ export type ProofloopTargetPlan = {
     };
     recommendations: ProofloopBenchmarkRecommendation[];
     runnerPlan?: ProofloopRunnerPlan;
+    generatedFiles: string[];
     blocked: string[];
     nextActions: string[];
     honesty: string;
@@ -52,6 +53,7 @@ export type ProofloopTargetOptions = {
     url?: string;
     outPath?: string;
     writeRunnerPlan?: boolean;
+    writeBrowserSmoke?: boolean;
     json?: boolean;
     dense?: boolean;
     timeoutMs?: number;
@@ -79,6 +81,7 @@ export declare function buildProofloopTargetPlan(args: {
     root: string;
     codebaseSignals?: TargetSignals;
     urlSignals?: UrlSignals;
+    generatedFiles?: string[];
     generatedAt?: string;
 }): ProofloopTargetPlan;
 export declare function classifyBenchmarkFamilies(textInput: string, scripts?: Record<string, string>, hasLiveUrl?: boolean, seedEvidence?: string[]): ProofloopBenchmarkRecommendation[];
