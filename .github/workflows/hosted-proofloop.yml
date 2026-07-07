@@ -1,0 +1,68 @@
+name: Hosted ProofLoop Worker
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: ProofLoop hosted run id
+        required: true
+        type: string
+      request_json:
+        description: Serialized proofloop-hosted-run-v1 request
+        required: true
+        type: string
+
+run-name: ProofLoop hosted ${{ inputs.run_id }}
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  hosted-proofloop:
+    name: hosted worker / browser proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install package dependencies
+        run: npm ci
+
+      - name: Build package and site
+        run: npm run build
+
+      - name: Install Playwright runtime
+        run: |
+          npm install --no-save playwright@1.49.1
+          npx playwright install --with-deps chromium
+
+      - name: Write hosted request
+        env:
+          RUN_ID: ${{ inputs.run_id }}
+          REQUEST_JSON: ${{ inputs.request_json }}
+        run: |
+          mkdir -p ".proofloop/hosted/incoming/$RUN_ID"
+          node -e "require('fs').writeFileSync('.proofloop/hosted/incoming/' + process.env.RUN_ID + '/request.json', process.env.REQUEST_JSON + '\n')"
+
+      - name: Run hosted worker
+        env:
+          RUN_ID: ${{ inputs.run_id }}
+        run: |
+          node scripts/hosted-worker.mjs \
+            --request ".proofloop/hosted/incoming/$RUN_ID/request.json" \
+            --out ".proofloop/hosted/runs/$RUN_ID"
+
+      - name: Upload hosted proof artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: proofloop-hosted-${{ inputs.run_id }}
+          path: .proofloop/hosted/runs/${{ inputs.run_id }}/
+          if-no-files-found: error
+          retention-days: 30

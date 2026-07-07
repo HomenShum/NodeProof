@@ -36,6 +36,11 @@ plan. The worker is intentionally outside normal Vercel request limits because r
 long-running Playwright, model calls, retries, screenshots, video, traces, scorecards, and cost
 ledgers.
 
+On `proofloop.live`, `/api/hosted/submit` validates the packet and dispatches
+`.github/workflows/hosted-proofloop.yml`. The GitHub Actions worker installs Playwright, runs
+`scripts/hosted-worker.mjs`, and uploads the artifact contract as an Actions artifact. The live page
+polls `/api/hosted/status?runId=...` for queue/running/completed state and replay/artifact links.
+
 Hosted runs are blocked until the target is allowlisted or domain-verified through a well-known file
 or DNS TXT token. Auth notes are notes only: do not paste raw passwords, API keys, or production
 secrets into browser intake. Apps behind login use manual-login, test-account, or session-replay
@@ -197,6 +202,7 @@ script. With neither, it reports `no_gate` with exit code 2. An unconfigured gat
 | `proofloop this-repo --write-runner-plan [--run]` | Generate and optionally execute a two-layer durable runner plan for latest repo/latest updates. |
 | `proofloop hosted intake --url <url> --app-type <type> --consent` | Write a hosted proof packet with consent, domain verification, success contract, benchmark proxy tasks, artifact paths, dashboard, and queue item. |
 | `proofloop hosted run --request <queue-or-bundle.json>` | Convert a hosted packet into the external managed-worker plan that long-running Playwright/model infrastructure executes. |
+| `node scripts/hosted-worker.mjs --request <request.json>` | Managed-worker entrypoint used by GitHub Actions to run Playwright and write receipt/screenshot/video/trace/scorecard/dashboard artifacts. |
 
 Minimal runner plan:
 
@@ -271,6 +277,15 @@ benchmark tasks." It composes generic app contracts from app type and audience, 
 permission gates, and declares the artifact contract for private/public dashboards. It does not turn
 Proof Loop into a crawler for arbitrary apps: domain permission is a hard blocker before browser
 automation starts.
+
+The hosted production path is intentionally split:
+
+- Vercel API: validates consent, rejects secret-like auth notes, verifies well-known/DNS domain
+  ownership, and dispatches a worker.
+- GitHub Actions worker: performs the long-running Playwright run, writes trace/receipt/video
+  artifacts, and fails the run if the generic success contract is not met.
+- Status API: returns the Actions run state and uploaded artifact metadata so the dashboard can show
+  failed gates and replay links without trusting a worker's prose.
 
 The package does not pretend to know your app's official benchmark or browser flow by default. You
 make that real by putting deterministic checks in `proofloop.config.json`: build, tests, Playwright

@@ -530,6 +530,18 @@ code {
   background: rgba(11, 11, 13, 0.62);
 }
 
+.hosted-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.submit-run {
+  margin-left: 0;
+  white-space: nowrap;
+}
+
 .hosted-output div {
   min-width: 0;
 }
@@ -546,6 +558,41 @@ code {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   margin-top: 14px;
+}
+
+.hosted-status {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(11, 11, 13, 0.72);
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.hosted-status strong {
+  color: var(--text);
+}
+
+.hosted-status[data-kind="blocked"],
+.hosted-status[data-kind="failure"],
+.hosted-status[data-kind="failed"] {
+  border-color: rgba(217, 119, 87, 0.7);
+}
+
+.hosted-status[data-kind="success"],
+.hosted-status[data-kind="completed"] {
+  border-color: rgba(143, 214, 148, 0.7);
+}
+
+.hosted-status pre {
+  max-height: 230px;
+  margin: 10px 0 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-family: var(--mono);
+  font-size: 11.5px;
 }
 
 .packet-preview div {
@@ -704,7 +751,9 @@ button:focus-visible {
   }
 
   .builder-output .copy-btn,
-  .hosted-output .copy-btn {
+  .hosted-actions,
+  .hosted-output .copy-btn,
+  .hosted-output .submit-run {
     width: 100%;
   }
 
@@ -719,6 +768,11 @@ button:focus-visible {
   }
 
   .hosted-output {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .hosted-actions {
     align-items: stretch;
     flex-direction: column;
   }

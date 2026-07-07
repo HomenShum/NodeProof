@@ -60,6 +60,8 @@
   const hostedFamilies = Array.from(document.querySelectorAll("[data-hosted-family]"));
   const hostedCommand = document.querySelector("[data-hosted-command]");
   const hostedCopy = document.querySelector("[data-hosted-copy]");
+  const hostedSubmit = document.querySelector("[data-hosted-submit]");
+  const hostedStatus = document.querySelector("[data-hosted-status]");
   const hostedPacket = document.querySelector("[data-hosted-packet]");
   const hostedDomainProof = document.querySelector("[data-hosted-domain-proof]");
   const allowlistedHosts = new Set(["noderoom.live", "www.noderoom.live", "proofloop.live", "www.proofloop.live"]);
@@ -107,10 +109,17 @@
     hostedCommand.textContent = commandText;
     hostedCopy.setAttribute("data-copy", commandText);
     hostedDomainProof.textContent = domainProofFor(url);
-    hostedPacket.textContent = JSON.stringify({
+    hostedPacket.textContent = JSON.stringify(hostedPayload(), null, 2);
+  }
+
+  function hostedPayload() {
+    const url = hostedUrl.value.trim() || "https://your-app.example";
+    const families = selectedFamilies();
+    return {
       targetUrl: url,
       appType: hostedAppType.value,
       authMode: hostedAuthNotes.value.trim() ? "manual-login" : "none",
+      authNotes: hostedAuthNotes.value.trim(),
       authNotesPolicy: "notes only; no raw passwords, API keys, or production secrets",
       modelBudgetUsd: Number(hostedBudget.value || 0),
       requestedBenchmarkFamilies: families,
@@ -123,7 +132,57 @@
       visibility: hostedVisibility.value,
       worker: "external-managed-worker",
       artifacts: ["receipt", "screenshot", "video", "trace", "scorecard", "dashboard"],
-    }, null, 2);
+    };
+  }
+
+  function setHostedStatus(kind, message, detail) {
+    if (!hostedStatus) return;
+    hostedStatus.hidden = false;
+    hostedStatus.setAttribute("data-kind", kind);
+    const safeDetail = detail ? `<pre>${escapeHtml(JSON.stringify(detail, null, 2))}</pre>` : "";
+    hostedStatus.innerHTML = `<strong>${escapeHtml(message)}</strong>${safeDetail}`;
+  }
+
+  async function submitHostedRun() {
+    if (!hostedSubmit) return;
+    hostedSubmit.disabled = true;
+    setHostedStatus("pending", "Submitting hosted run...");
+    try {
+      const response = await fetch("/api/hosted/submit", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(hostedPayload()),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
+        setHostedStatus("blocked", data.status || data.error || "Run blocked", data);
+        return;
+      }
+      setHostedStatus("queued", `Queued ${data.runId}. Polling worker status...`, data);
+      await pollHostedStatus(data.runId, 8);
+    } catch (error) {
+      setHostedStatus("blocked", "Submit failed", { error: String(error && error.message ? error.message : error) });
+    } finally {
+      hostedSubmit.disabled = false;
+    }
+  }
+
+  async function pollHostedStatus(runId, attempts) {
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, attempt === 0 ? 1800 : 5000));
+      const response = await fetch(`/api/hosted/status?runId=${encodeURIComponent(runId)}`);
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
+        setHostedStatus("blocked", "Status lookup failed", data);
+        return;
+      }
+      setHostedStatus(data.conclusion || data.status, `Worker status: ${data.status}${data.conclusion ? ` / ${data.conclusion}` : ""}`, data);
+      if (data.status === "completed") return;
+    }
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
 
   if (hostedUrl) {
@@ -132,6 +191,7 @@
       item.addEventListener("input", updateHostedIntake);
       item.addEventListener("change", updateHostedIntake);
     });
+    if (hostedSubmit) hostedSubmit.addEventListener("click", submitHostedRun);
     updateHostedIntake();
   }
 })();

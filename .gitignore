@@ -7,3 +7,4 @@ node_modules/
 .vercel
 public/webcontainer-demo.bundle.js
 public/xterm.css
+.env*.local

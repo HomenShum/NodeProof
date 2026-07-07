@@ -49,10 +49,13 @@ describe("proofloop.live site", () => {
     expect(normalizedHtml).toContain("Auth/session notes");
     expect(normalizedHtml).toContain("Model budget");
     expect(normalizedHtml).toContain("Benchmark proxy families");
+    expect(normalizedHtml).toContain("Submit run");
     expect(normalizedHtml).toContain("I own or am authorized to test this target");
     expect(normalizedHtml).toContain("screenshots, video, trace, scorecard");
     expect(script).toContain("data-hosted-target-url");
     expect(script).toContain("npx proofloop hosted intake");
+    expect(script).toContain("/api/hosted/submit");
+    expect(script).toContain("/api/hosted/status?runId=");
   });
 
   it("shows the real, current package facts instead of a stale or invented version", () => {
@@ -61,8 +64,8 @@ describe("proofloop.live site", () => {
     expect(normalizedHtml).toContain(pkg.license || "MIT");
   });
 
-  it("has no client-side network calls or credential-submitting forms", () => {
-    expect(script).not.toContain("fetch(");
+  it("only submits to the proofloop hosted API and keeps credential forms out of the page", () => {
+    expect(script).toContain('fetch("/api/hosted/submit"');
     expect(script).not.toContain("XMLHttpRequest");
     expect(normalizedHtml).not.toContain("<form");
   });

@@ -206,8 +206,13 @@ gate: passed<span class="cursor" aria-hidden="true"></span></code></pre>
               <span>Hosted intake command</span>
               <code data-hosted-command>npx proofloop hosted intake --url https://noderoom.live --app-type agent-app --budget-usd 10 --families live-browser-smoke</code>
             </div>
-            <button class="copy-btn" type="button" data-hosted-copy data-copy="" data-testid="copy-hosted">Copy</button>
+            <div class="hosted-actions">
+              <button class="copy-btn" type="button" data-hosted-copy data-copy="" data-testid="copy-hosted">Copy</button>
+              <button class="run-btn submit-run" type="button" data-hosted-submit data-testid="submit-hosted">Submit run</button>
+            </div>
           </div>
+
+          <div class="hosted-status" data-hosted-status hidden></div>
 
           <div class="packet-preview">
             <div>
