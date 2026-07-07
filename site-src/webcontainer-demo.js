@@ -62,11 +62,11 @@ async function pipeToTerminal(process, term) {
 }
 
 async function runDemo(term, setStatus) {
-  setStatus("booting sandbox…");
+  setStatus("booting sandbox...");
   const webcontainer = await WebContainer.boot();
   await webcontainer.mount(FIXTURE_FILES);
 
-  setStatus("installing proofloop from npm…");
+  setStatus("installing proofloop from npm...");
   term.writeln("$ npm install proofloop --no-audit --no-fund");
   const install = await webcontainer.spawn("npm", ["install", "proofloop", "--no-audit", "--no-fund"]);
   const installPipe = pipeToTerminal(install, term);
@@ -74,25 +74,25 @@ async function runDemo(term, setStatus) {
   await installPipe;
   if (installExit !== 0) {
     setStatus("install failed");
-    term.writeln("\r\n[install failed — showing recorded transcript instead]");
+    term.writeln("\r\n[install failed - showing recorded transcript instead]");
     return;
   }
 
-  setStatus("running npx proofloop init…");
+  setStatus("running npx proofloop init...");
   term.writeln("\r\n$ npx proofloop init");
   const init = await webcontainer.spawn("npx", ["proofloop", "init"]);
   const initPipe = pipeToTerminal(init, term);
   await init.exit;
   await initPipe;
 
-  setStatus("running npx proofloop gate…");
+  setStatus("running npx proofloop gate...");
   term.writeln("\r\n$ npx proofloop gate");
   const gate = await webcontainer.spawn("npx", ["proofloop", "gate"]);
   const gatePipe = pipeToTerminal(gate, term);
   const gateExit = await gate.exit;
   await gatePipe;
 
-  setStatus(gateExit === 0 ? "gate: passed (real run, real proofloop package)" : "gate: failed");
+  setStatus(gateExit === 0 ? "gate: passed (real run against npm proofloop package)" : "gate: failed");
 }
 
 function init() {
@@ -111,7 +111,7 @@ function init() {
     if (started) return;
     started = true;
     runButton.disabled = true;
-    runButton.textContent = "Running…";
+    runButton.textContent = "Running...";
 
     staticBody.hidden = true;
     liveHost.hidden = false;
@@ -135,7 +135,7 @@ function init() {
     try {
       await runDemo(term, setStatus);
     } catch (err) {
-      setStatus("sandbox unavailable — showing recorded transcript instead");
+      setStatus("sandbox unavailable - showing recorded transcript instead");
       term.writeln(`\r\n[${err && err.message ? err.message : "boot failed"}]`);
       liveHost.hidden = true;
       staticBody.hidden = false;

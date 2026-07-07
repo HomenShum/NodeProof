@@ -92,7 +92,7 @@ function handleRequest(request: JsonRpcRequest, serverRoot: string): JsonValue {
       return {
         protocolVersion: "2025-06-18",
         capabilities: { tools: {} },
-        serverInfo: { name: "proofloop", version: "0.2.0" },
+        serverInfo: { name: "proofloop", version: "0.3.0" },
       };
     case "ping":
       return {};
