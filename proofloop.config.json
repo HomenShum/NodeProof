@@ -1,0 +1,22 @@
+{
+  "app": "ProofLoop CLI and static site",
+  "workflow": "Scan a repo or live URL, produce deterministic proof receipts, generate the context handoff report, and refuse fake done through the gate.",
+  "gate": {
+    "checks": [
+      {
+        "name": "build",
+        "command": "npm run build"
+      },
+      {
+        "name": "tests",
+        "command": "npm test"
+      }
+    ]
+  },
+  "immutable": [
+    "templates/github-proofloop-gate.yml"
+  ],
+  "protectedPaths": [
+    "docs/agent-os/"
+  ]
+}

@@ -59,14 +59,20 @@ describe("proofloop target planner", () => {
 
     const planPath = join(root, ".proofloop", "target", "latest-target-plan.json");
     const runnerPlanPath = join(root, ".proofloop", "runner", "target.plan.json");
+    const reportPath = join(root, ".proofloop", "reports", "latest.md");
     expect(existsSync(planPath)).toBe(true);
     expect(existsSync(runnerPlanPath)).toBe(true);
+    expect(existsSync(reportPath)).toBe(true);
 
     const plan = JSON.parse(readFileSync(planPath, "utf8")) as ProofloopTargetPlan;
+    const report = readFileSync(reportPath, "utf8");
     const accounting = plan.recommendations.find((entry) => entry.id === "bankertoolbench");
     const spreadsheet = plan.recommendations.find((entry) => entry.id === "spreadsheetbench-v1");
 
     expect(plan.target.kind).toBe("codebase");
+    expect(report).toContain("# ProofLoop Context Report");
+    expect(report).toContain("ledger-room");
+    expect(report).toContain("## Not Done / Blocked");
     expect(accounting?.adapterStatus).toBe("configured");
     expect(accounting?.configuredScripts.map((script) => script.name)).toContain("benchmark:accounting");
     expect(accounting?.evidence.join("\n")).toContain("trial balance");
@@ -101,6 +107,8 @@ describe("proofloop target planner", () => {
 
     expect(result.exitCode).toBe(0);
     expect(existsSync(result.planPath)).toBe(true);
+    expect(result.reportPath && existsSync(result.reportPath)).toBe(true);
+    expect(result.latestReportPath && existsSync(result.latestReportPath)).toBe(true);
     expect(result.runnerPlanPath && existsSync(result.runnerPlanPath)).toBe(true);
     expect(result.plan.target.kind).toBe("live-url");
     expect(result.plan.target.httpStatus).toBe(200);
@@ -110,6 +118,7 @@ describe("proofloop target planner", () => {
     expect(result.plan.runnerPlan?.tasks.some((task) => task.id === "target.url-reachable")).toBe(true);
     expect(result.plan.blocked.join("\n")).toContain("no Playwright/Cypress/browser script");
     expect(logs.join("\n")).toContain('"schema": "proofloop-target-plan-v1"');
+    expect(readFileSync(result.latestReportPath!, "utf8")).toContain("## Agent Handoff");
   });
 
   it("can scaffold a Playwright live-smoke adapter for a URL target", async () => {
@@ -143,6 +152,7 @@ describe("proofloop target planner", () => {
     const browser = result.plan.recommendations.find((entry) => entry.id === "live-browser-smoke");
 
     expect(existsSync(specPath)).toBe(true);
+    expect(result.latestReportPath && existsSync(result.latestReportPath)).toBe(true);
     expect(readFileSync(specPath, "utf8")).toContain(url);
     expect(pkg.scripts["proofloop:live-smoke"]).toBe("playwright test proofloop/browser/live-smoke.spec.ts");
     expect(browser?.adapterStatus).toBe("configured");

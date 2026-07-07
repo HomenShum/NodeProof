@@ -7,6 +7,7 @@ exports.classifyBenchmarkFamilies = classifyBenchmarkFamilies;
 exports.formatProofloopTargetPlanDense = formatProofloopTargetPlanDense;
 const node_fs_1 = require("node:fs");
 const node_path_1 = require("node:path");
+const contextReport_1 = require("./contextReport");
 const layeredPlan_1 = require("./layeredPlan");
 const DEFAULT_TARGET_PLAN_PATH = (0, node_path_1.join)(".proofloop", "target", "latest-target-plan.json");
 const DEFAULT_TARGET_RUNNER_PLAN_PATH = (0, node_path_1.join)(".proofloop", "runner", "target.plan.json");
@@ -111,10 +112,16 @@ async function runProofloopTarget(options) {
     try {
         const result = await writeProofloopTargetPlan(options);
         if (options.json) {
-            log(JSON.stringify({ ...result.plan, planPath: result.planPath, runnerPlanPath: result.runnerPlanPath ?? null }, null, 2));
+            log(JSON.stringify({
+                ...result.plan,
+                planPath: result.planPath,
+                runnerPlanPath: result.runnerPlanPath ?? null,
+                reportPath: result.reportPath ?? null,
+                latestReportPath: result.latestReportPath ?? null,
+            }, null, 2));
         }
         else {
-            log(formatProofloopTargetPlanDense(result.plan, result.planPath, result.runnerPlanPath));
+            log(formatProofloopTargetPlanDense(result.plan, result.planPath, result.runnerPlanPath, result.reportPath));
         }
         return result;
     }
@@ -147,7 +154,15 @@ async function writeProofloopTargetPlan(options) {
         runnerPlanPath = (0, node_path_1.resolve)(root, DEFAULT_TARGET_RUNNER_PLAN_PATH);
         writeJson(runnerPlanPath, plan.runnerPlan);
     }
-    return { exitCode: 0, plan, planPath, ...(runnerPlanPath ? { runnerPlanPath } : {}) };
+    const report = (0, contextReport_1.writeProofloopContextReport)({ root, targetPlan: plan, targetPlanPath: planPath, ...(runnerPlanPath ? { runnerPlanPath } : {}) });
+    return {
+        exitCode: 0,
+        plan,
+        planPath,
+        ...(runnerPlanPath ? { runnerPlanPath } : {}),
+        reportPath: report.reportPath,
+        latestReportPath: report.latestPath,
+    };
 }
 function buildProofloopTargetPlan(args) {
     const root = (0, node_path_1.resolve)(args.root);
@@ -240,7 +255,7 @@ function classifyBenchmarkFamilies(textInput, scripts = {}, hasLiveUrl = false, 
     }
     return recommendations.sort((a, b) => b.confidence - a.confidence || a.id.localeCompare(b.id));
 }
-function formatProofloopTargetPlanDense(plan, planPath, runnerPlanPath) {
+function formatProofloopTargetPlanDense(plan, planPath, runnerPlanPath, reportPath) {
     const lines = [
         "proofloop-target-plan",
         `target=${plan.target.kind}${plan.target.url ? ` url=${plan.target.url}` : ""}${plan.target.packageName ? ` package=${plan.target.packageName}` : ""}`,
@@ -248,6 +263,7 @@ function formatProofloopTargetPlanDense(plan, planPath, runnerPlanPath) {
         `officialScoreReady=${String(plan.summary.officialScoreReady)} runnerPlanReady=${String(plan.summary.runnerPlanReady)}`,
         `plan=${planPath}`,
         ...(runnerPlanPath ? [`runnerPlan=${runnerPlanPath}`] : []),
+        ...(reportPath ? [`report=${reportPath}`] : []),
     ];
     for (const rec of plan.recommendations.slice(0, 8)) {
         lines.push(`family=${rec.id} fit=${rec.fit} confidence=${rec.confidence.toFixed(2)} adapter=${rec.adapterStatus} scorer=${rec.officialScoreStatus}`);

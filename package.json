@@ -28,6 +28,7 @@
   "files": [
     "dist",
     "templates",
+    "docs/agent-os",
     "README.md",
     "LICENSE"
   ],
@@ -37,7 +38,15 @@
     "prepublishOnly": "npm run build",
     "pretest": "npm run build",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "proofloop:init": "npx proofloop init --agent auto --live",
+    "proofloop:live": "npx proofloop this-repo --live",
+    "proofloop:gate": "npx proofloop gate",
+    "proofloop:resume": "npx proofloop resume --dense",
+    "proofloop:doctor": "npx proofloop doctor --json",
+    "proofloop:target": "npx proofloop target --write-runner-plan",
+    "proofloop:report": "npx proofloop report latest",
+    "proofloop:charts": "npx proofloop charts latest"
   },
   "devDependencies": {
     "@webcontainer/api": "^1.6.4",

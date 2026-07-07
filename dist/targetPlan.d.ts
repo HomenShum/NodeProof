@@ -47,6 +47,8 @@ export type ProofloopTargetResult = {
     plan: ProofloopTargetPlan;
     planPath: string;
     runnerPlanPath?: string;
+    reportPath?: string;
+    latestReportPath?: string;
 };
 export type ProofloopTargetOptions = {
     root: string;
@@ -85,5 +87,5 @@ export declare function buildProofloopTargetPlan(args: {
     generatedAt?: string;
 }): ProofloopTargetPlan;
 export declare function classifyBenchmarkFamilies(textInput: string, scripts?: Record<string, string>, hasLiveUrl?: boolean, seedEvidence?: string[]): ProofloopBenchmarkRecommendation[];
-export declare function formatProofloopTargetPlanDense(plan: ProofloopTargetPlan, planPath: string, runnerPlanPath?: string): string;
+export declare function formatProofloopTargetPlanDense(plan: ProofloopTargetPlan, planPath: string, runnerPlanPath?: string, reportPath?: string): string;
 export {};

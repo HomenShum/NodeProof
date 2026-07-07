@@ -30,6 +30,9 @@ jobs:
       - name: Test (vitest)
         run: npm test
 
+      - name: ProofLoop gate
+        run: node dist/cli.js gate
+
       - name: Smoke — CLI runs with zero runtime deps
         run: |
           node dist/cli.js help

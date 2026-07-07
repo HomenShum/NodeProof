@@ -47,7 +47,9 @@ describe("agent-friendly project setup", () => {
 
     const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as { scripts: Record<string, string> };
     expect(pkg.scripts["proofloop:init"]).toBe("npx proofloop init --agent auto --live");
+    expect(pkg.scripts["proofloop:target"]).toBe("npx proofloop target --write-runner-plan");
     expect(pkg.scripts["proofloop:charts"]).toBe("npx proofloop charts latest");
+    expect(readFileSync(join(root, "AGENTS.md"), "utf8")).toContain(".proofloop/reports/latest.md");
 
     const manifest = buildProofloopProjectManifest(root);
     expect(manifest.repo.stack).toContain("Vite");

@@ -30,8 +30,10 @@ npx proofloop target --dir . --write-runner-plan
 `target` fetches the live URL or scans the codebase, recommends benchmark families with evidence,
 detects any already-configured benchmark/browser scripts, writes
 `.proofloop/target/latest-target-plan.json`, and can write a runnable
-`.proofloop/runner/target.plan.json`. It does not invent official scores; missing adapters and
-official scorer paths are recorded as blockers.
+`.proofloop/runner/target.plan.json`. It also writes a dated, LangChain-docs-style context page at
+`.proofloop/reports/latest.md` for the next human or coding agent to read before continuing the run.
+It does not invent official scores; missing adapters and official scorer paths are recorded as
+blockers.
 
 When `--write-browser-smoke` is provided with `--url` in a repo with `package.json`, Proof Loop
 writes `proofloop/browser/live-smoke.spec.ts` and a `proofloop:live-smoke` package script. That turns
@@ -45,7 +47,7 @@ npx proofloop init --agent auto --live  # config + manifest + agent docs + scrip
 npx proofloop doctor --json             # setup checks and fix commands
 npx proofloop manifest --dense          # compact repo status for agents
 npx proofloop ui contract --dense       # stable selectors/actions/assertions
-npx proofloop target --write-runner-plan # benchmark-family plan + runnable adapter discovery
+npx proofloop target --write-runner-plan # benchmark plan + context report + runner discovery
 npx proofloop prompt                    # kickoff prompt to paste into your coding agent
 npx proofloop this-repo --goal "proofloop my latest updates" --write-runner-plan
 npx proofloop runner run --plan proofloop.runner.json --budget-usd 100
@@ -77,6 +79,11 @@ a protected path: the gate definition is not the agent's to move.
 
 The CLI stays primary. `npx proofloop mcp` exposes the same compact read-only surfaces to MCP clients
 without loading broad repo context.
+
+ProofLoop also ships an Agent OS markdown pack under `docs/agent-os/`. It adapts the Room OS
+human-world-model idea into deterministic proof supervision: goals are contracts, the world model is
+the current target plus receipts/blockers, memory is mined from prior failures, and workers do not
+grade their own work.
 
 For a non-technical kickoff, tell Claude/Codex: "proofloop my latest repo" or
 "proofloop my latest updates." The agent-facing command is:
@@ -153,7 +160,7 @@ script. With neither, it reports `no_gate` with exit code 2. An unconfigured gat
 | `proofloop init --agent auto --live` | Add agent docs, manifest, package aliases, workflows, and rubrics. |
 | `proofloop doctor [--json]` | Report node/git/agent readiness, manifest/docs/scripts, Playwright/browser readiness, GitHub workflow, UI contracts, and fix commands. |
 | `proofloop manifest [--json\|--dense]` | Print project status: stack, commands, proof gates, workflows, UI contracts, blockers. |
-| `proofloop target [--url <url>] [--write-runner-plan] [--write-browser-smoke] [--json]` | Recommend benchmark families from a URL/codebase, detect or scaffold configured adapters, and write target/runner plan receipts. |
+| `proofloop target [--url <url>] [--write-runner-plan] [--write-browser-smoke] [--json]` | Recommend benchmark families from a URL/codebase, detect or scaffold configured adapters, and write target/runner plan receipts plus `.proofloop/reports/latest.md`. |
 | `proofloop docs agents --dense` | Print compact agent workflow instructions. |
 | `proofloop ui contract\|component <id>` | Discover stable `data-testid` and `data-proofloop` selectors. |
 | `proofloop template --list` / `proofloop template <id> --write` | List or write starter proof-loop templates. |

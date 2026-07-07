@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import type { Dirent } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { writeProofloopContextReport } from "./contextReport";
 import { buildProofloopLayeredRunnerPlan } from "./layeredPlan";
 import type { ProofloopRunnerPlan, ProofloopRunnerTaskPlan } from "./runner";
 
@@ -52,6 +53,8 @@ export type ProofloopTargetResult = {
   plan: ProofloopTargetPlan;
   planPath: string;
   runnerPlanPath?: string;
+  reportPath?: string;
+  latestReportPath?: string;
 };
 
 export type ProofloopTargetOptions = {
@@ -208,9 +211,15 @@ export async function runProofloopTarget(options: ProofloopTargetOptions): Promi
   try {
     const result = await writeProofloopTargetPlan(options);
     if (options.json) {
-      log(JSON.stringify({ ...result.plan, planPath: result.planPath, runnerPlanPath: result.runnerPlanPath ?? null }, null, 2));
+      log(JSON.stringify({
+        ...result.plan,
+        planPath: result.planPath,
+        runnerPlanPath: result.runnerPlanPath ?? null,
+        reportPath: result.reportPath ?? null,
+        latestReportPath: result.latestReportPath ?? null,
+      }, null, 2));
     } else {
-      log(formatProofloopTargetPlanDense(result.plan, result.planPath, result.runnerPlanPath));
+      log(formatProofloopTargetPlanDense(result.plan, result.planPath, result.runnerPlanPath, result.reportPath));
     }
     return result;
   } catch (error) {
@@ -244,8 +253,16 @@ export async function writeProofloopTargetPlan(options: ProofloopTargetOptions):
     runnerPlanPath = resolve(root, DEFAULT_TARGET_RUNNER_PLAN_PATH);
     writeJson(runnerPlanPath, plan.runnerPlan);
   }
+  const report = writeProofloopContextReport({ root, targetPlan: plan, targetPlanPath: planPath, ...(runnerPlanPath ? { runnerPlanPath } : {}) });
 
-  return { exitCode: 0, plan, planPath, ...(runnerPlanPath ? { runnerPlanPath } : {}) };
+  return {
+    exitCode: 0,
+    plan,
+    planPath,
+    ...(runnerPlanPath ? { runnerPlanPath } : {}),
+    reportPath: report.reportPath,
+    latestReportPath: report.latestPath,
+  };
 }
 
 export function buildProofloopTargetPlan(args: {
@@ -355,7 +372,7 @@ export function classifyBenchmarkFamilies(
   return recommendations.sort((a, b) => b.confidence - a.confidence || a.id.localeCompare(b.id));
 }
 
-export function formatProofloopTargetPlanDense(plan: ProofloopTargetPlan, planPath: string, runnerPlanPath?: string): string {
+export function formatProofloopTargetPlanDense(plan: ProofloopTargetPlan, planPath: string, runnerPlanPath?: string, reportPath?: string): string {
   const lines = [
     "proofloop-target-plan",
     `target=${plan.target.kind}${plan.target.url ? ` url=${plan.target.url}` : ""}${plan.target.packageName ? ` package=${plan.target.packageName}` : ""}`,
@@ -363,6 +380,7 @@ export function formatProofloopTargetPlanDense(plan: ProofloopTargetPlan, planPa
     `officialScoreReady=${String(plan.summary.officialScoreReady)} runnerPlanReady=${String(plan.summary.runnerPlanReady)}`,
     `plan=${planPath}`,
     ...(runnerPlanPath ? [`runnerPlan=${runnerPlanPath}`] : []),
+    ...(reportPath ? [`report=${reportPath}`] : []),
   ];
   for (const rec of plan.recommendations.slice(0, 8)) {
     lines.push(`family=${rec.id} fit=${rec.fit} confidence=${rec.confidence.toFixed(2)} adapter=${rec.adapterStatus} scorer=${rec.officialScoreStatus}`);
