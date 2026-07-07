@@ -40,6 +40,11 @@ On `proofloop.live`, `/api/hosted/submit` validates the packet and dispatches
 `.github/workflows/hosted-proofloop.yml`. The GitHub Actions worker installs Playwright, runs
 `scripts/hosted-worker.mjs`, and uploads the artifact contract as an Actions artifact. The live page
 polls `/api/hosted/status?runId=...` for queue/running/completed state and replay/artifact links.
+GitHub SSO is exposed through `/api/auth/github/start`, `/api/auth/github/callback`, and
+`/api/auth/github/status`. Configure the Vercel deployment with
+`PROOFLOOP_GITHUB_OAUTH_CLIENT_ID`, `PROOFLOOP_GITHUB_OAUTH_CLIENT_SECRET`, and optionally
+`PROOFLOOP_AUTH_COOKIE_SECRET`; until those are present, the SSO button fails closed with an
+unconfigured status instead of pretending sign-in works.
 
 Hosted runs are blocked until the target is allowlisted or domain-verified through a well-known file
 or DNS TXT token. Auth notes are notes only: do not paste raw passwords, API keys, or production

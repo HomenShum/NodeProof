@@ -12,10 +12,15 @@ const vercelConfig = JSON.parse(readFileSync(join(root, "vercel.json"), "utf8"))
 };
 
 describe("proofloop.live site", () => {
-  it("is only a URL/GitHub intake on first load", () => {
-    expect(normalizedHtml).toContain("Put your URL or GitHub in");
+  it("is a clear URL/GitHub intake on first load", () => {
+    expect(normalizedHtml).toContain("ProofLoop your app or repo");
+    expect(normalizedHtml).toContain("Paste a live URL or GitHub repo");
+    expect(normalizedHtml).toContain("capture receipts");
     expect(normalizedHtml).toContain('data-testid="target-input"');
     expect(normalizedHtml).toContain('data-testid="target-submit"');
+    expect(normalizedHtml).toContain('data-testid="github-sso"');
+    expect(normalizedHtml).toContain('href="/api/auth/github/start"');
+    expect(normalizedHtml).toContain("Continue with GitHub");
     expect(normalizedHtml).toContain("https://your-app.com or https://github.com/org/repo");
 
     expect(normalizedHtml).not.toContain("The gate decides");
@@ -29,6 +34,7 @@ describe("proofloop.live site", () => {
   it("keeps the GitHub path honest instead of sending github.com to live-browser automation", () => {
     expect(script).toContain("githubRepo");
     expect(script).toContain("git clone");
+    expect(script).toContain('fetch("/api/auth/github/status"');
     expect(script).toContain("npx proofloop init --agent auto --live");
     expect(script).toContain("npx proofloop maturity --target-level 5 --write");
   });

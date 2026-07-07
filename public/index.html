@@ -6,13 +6,18 @@
     <title>Proof Loop</title>
     <meta
       name="description"
-      content="Put your URL or GitHub in and Proof Loop will prepare the proof run."
+      content="Paste a live URL or GitHub repo and Proof Loop will prepare a verified proof run."
     />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <main class="landing" data-testid="landing">
-      <h1>Put your URL or GitHub in</h1>
+      <p class="eyebrow">ProofLoop Live</p>
+      <h1>ProofLoop your app or repo</h1>
+      <p class="lede">
+        Paste a live URL or GitHub repo. We run the proof plan, capture receipts, and show what is
+        verified instead of trusting a "done" claim.
+      </p>
       <div class="intake" role="search">
         <input
           data-intake-input
@@ -27,6 +32,9 @@
         />
         <button data-intake-submit data-testid="target-submit" type="button">ProofLoop</button>
       </div>
+      <a class="github-sso" data-github-sso data-testid="github-sso" href="/api/auth/github/start">
+        Continue with GitHub
+      </a>
       <p class="status" data-intake-status hidden></p>
       <pre class="detail" data-intake-detail hidden></pre>
     </main>

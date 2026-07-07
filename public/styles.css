@@ -40,9 +40,22 @@ input {
   min-height: 100vh;
   min-height: 100dvh;
   place-content: center;
-  gap: 18px;
+  gap: 16px;
   width: min(760px, calc(100vw - 32px));
   margin: 0 auto;
+}
+
+.eyebrow,
+.lede {
+  margin: 0;
+}
+
+.eyebrow {
+  color: var(--accent-hover);
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 h1 {
@@ -52,6 +65,13 @@ h1 {
   font-weight: 700;
   line-height: 1;
   letter-spacing: 0;
+}
+
+.lede {
+  max-width: 650px;
+  color: var(--muted);
+  font-size: clamp(1rem, 2vw, 1.16rem);
+  line-height: 1.5;
 }
 
 .intake {
@@ -107,6 +127,32 @@ button:focus-visible {
   outline-offset: 2px;
 }
 
+.github-sso {
+  justify-self: start;
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--text);
+  padding: 0 14px;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.github-sso:hover,
+.github-sso:focus-visible {
+  border-color: var(--accent);
+  outline: 0;
+}
+
+.github-sso[data-authenticated="true"] {
+  color: var(--accent-hover);
+}
+
 .status {
   margin: 0;
   color: var(--muted);
@@ -149,6 +195,10 @@ button:focus-visible {
   }
 
   button {
+    width: 100%;
+  }
+
+  .github-sso {
     width: 100%;
   }
 }

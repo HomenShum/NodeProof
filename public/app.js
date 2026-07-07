@@ -1,6 +1,7 @@
 (function () {
   const input = document.querySelector("[data-intake-input]");
   const submit = document.querySelector("[data-intake-submit]");
+  const githubSso = document.querySelector("[data-github-sso]");
   const status = document.querySelector("[data-intake-status]");
   const detail = document.querySelector("[data-intake-detail]");
 
@@ -48,6 +49,41 @@
       "npx proofloop maturity --target-level 5 --write",
       "npx proofloop gate",
     ].join(" && ");
+  }
+
+  async function loadGithubStatus() {
+    if (!githubSso) return;
+    try {
+      const response = await fetch("/api/auth/github/status", { headers: { accept: "application/json" } });
+      const data = await response.json();
+      githubSso.setAttribute("data-auth-configured", data.authConfigured ? "true" : "false");
+      githubSso.setAttribute("data-authenticated", data.authenticated ? "true" : "false");
+      if (data.authenticated && data.user && data.user.login) {
+        githubSso.textContent = `GitHub connected: ${data.user.login}`;
+        return;
+      }
+      githubSso.textContent = "Continue with GitHub";
+    } catch {
+      githubSso.setAttribute("data-auth-configured", "unknown");
+    }
+  }
+
+  function showRouteStatus() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("github") === "connected") {
+      setStatus("github", "GitHub connected. Paste a URL or repo to start a proof run.");
+      return;
+    }
+    const auth = params.get("auth");
+    if (auth === "github_unconfigured") {
+      setStatus("blocked", "GitHub SSO is not configured on this deployment yet.");
+    } else if (auth === "github_state_mismatch") {
+      setStatus("blocked", "GitHub sign-in expired. Try Continue with GitHub again.");
+    } else if (auth === "github_denied") {
+      setStatus("blocked", "GitHub sign-in was cancelled.");
+    } else if (auth === "github_failed") {
+      setStatus("blocked", "GitHub sign-in failed before a session could be created.");
+    }
   }
 
   async function submitTarget() {
@@ -103,4 +139,6 @@
   input.addEventListener("keydown", (event) => {
     if (event.key === "Enter") submitTarget();
   });
+  showRouteStatus();
+  loadGithubStatus();
 })();
