@@ -61,6 +61,77 @@ gate: passed<span class="cursor" aria-hidden="true"></span></code></pre>
           </p>
         </section>
 
+        <section class="builder" aria-labelledby="builder-title" data-testid="setup-builder">
+          <p class="eyebrow">Guided setup</p>
+          <h2 id="builder-title">Build a proof loop</h2>
+          <p class="builder-copy">
+            Hey! I&rsquo;m here to help you set up a proof loop in just a couple of minutes.
+            What app or workflow are you trying to prove? Describe it in your own words,
+            or tap a template below.
+          </p>
+
+          <label class="prompt-box" for="proofloop-use-case">
+            <span>Use case</span>
+            <textarea
+              id="proofloop-use-case"
+              data-builder-input
+              rows="4"
+              placeholder="Example: users upload a spreadsheet, the agent reconciles invoices, and the dashboard shows the audited totals."
+            ></textarea>
+          </label>
+
+          <div class="template-grid" aria-label="Proof loop templates">
+            <button
+              class="template-card"
+              type="button"
+              data-template="Live URL checkout flow: open the production app, complete the main user path, click through the proof-critical controls, and record visible receipts."
+            >
+              <span>Live URL flow</span>
+              <small>Click, submit, and verify the real page.</small>
+            </button>
+            <button
+              class="template-card"
+              type="button"
+              data-template="Accounting agent: reconcile ledger rows, create journal entries, verify trial balance totals, and keep benchmark scoring separate from product-path proof."
+            >
+              <span>Accounting agent</span>
+              <small>Reconcile, score, and chart receipts.</small>
+            </button>
+            <button
+              class="template-card"
+              type="button"
+              data-template="Document memory pipeline: ingest documents, chunk them, extract memory objects, verify receipt counts, and track stage-level failures."
+            >
+              <span>Memory pipeline</span>
+              <small>Documents to memory with receipts.</small>
+            </button>
+            <button
+              class="template-card"
+              type="button"
+              data-template="Research copilot: answer a finance or company research question, cite sources, compare alternatives, and produce a deterministic proof report."
+            >
+              <span>Research copilot</span>
+              <small>Sources, claims, and proof reports.</small>
+            </button>
+          </div>
+
+          <div class="builder-output" aria-live="polite">
+            <div>
+              <span>Kickoff command</span>
+              <code data-builder-command>npx proofloop target --write-runner-plan</code>
+            </div>
+            <button
+              class="copy-btn"
+              type="button"
+              data-builder-copy
+              data-copy="npx proofloop target --write-runner-plan"
+              data-testid="copy-builder"
+            >
+              Copy
+            </button>
+          </div>
+        </section>
+
         <section class="capabilities" aria-label="What the gate does">
           <ol>
             <li>
