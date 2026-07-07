@@ -707,6 +707,65 @@ code {
   font-weight: 800;
 }
 
+.productivity {
+  margin-top: 28px;
+  padding: 24px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(217, 119, 87, 0.025)),
+    var(--surface);
+}
+
+.productivity h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.productivity p {
+  margin: 12px 0 0;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.productivity-command {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(11, 11, 13, 0.62);
+}
+
+.productivity-command code {
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.productivity-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.productivity-metrics span {
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text-muted);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
 .capabilities {
   margin-top: 76px;
   padding-top: 40px;
@@ -871,6 +930,19 @@ button:focus-visible {
 
   .maturity-levels {
     grid-template-columns: 1fr;
+  }
+
+  .productivity {
+    padding: 18px;
+  }
+
+  .productivity-command {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .productivity-command .copy-btn {
+    width: 100%;
   }
 
   .capabilities {

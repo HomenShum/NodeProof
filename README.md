@@ -116,6 +116,75 @@ README diagrams use native Mermaid so they render on GitHub without another serv
 source diagrams, use Kroki in the build/rendering pipeline and commit the rendered output; do not
 make the README depend on a live third-party renderer.
 
+## Productivity Proof Pack
+
+ProofLoop measures productivity as verified useful work, not agent activity. The default business
+translation is wage-equivalent engineering/QA capacity, discounted by baseline confidence and gated
+by proof:
+
+```text
+Verified Productivity =
+  wage-equivalent human time saved
+  + avoided rework / regression value
+  + faster delivery value
+  - model/API/browser/CI/review cost
+```
+
+The command is local and deterministic:
+
+```bash
+npx proofloop productivity \
+  --write \
+  --baseline-source benchmark \
+  --dev-hours 3 \
+  --qa-hours 1 \
+  --human-review-hours 0.4 \
+  --model-cost-usd 4.20 \
+  --browser-cost-usd 0.50 \
+  --ci-cost-usd 0.10 \
+  --regression-added \
+  --live-browser-verified
+```
+
+It writes:
+
+```text
+.proofloop/runs/<run-id>/
+  productivity-ledger.json
+  wage-research.json
+  baseline-estimates.json
+  productivity-scorecard.md
+  charts/
+    wage-equivalent-value.vl.json
+    cost-per-passed-proof.vl.json
+    time-to-proof-waterfall.vl.json
+    regression-reuse-value.vl.json
+    delivery-impact.vl.json
+```
+
+Every row used by the scorecard and charts carries `sourceFile`, `sourceField`, `confidence`,
+`method`, and `citation`. No citation, no chart row. No passing proof, no confidence-adjusted
+productivity claim.
+
+Baseline confidence is explicit:
+
+| Source | Default confidence | Use when |
+|---|---:|---|
+| `measured` | 0.95 | Timed human shadow run exists. |
+| `historical` | 0.85 | Team PR/issue history supports the baseline. |
+| `benchmark` | 0.75 | A task template or benchmark family supports the baseline. |
+| `research` | 0.65 | External research supports the estimate. |
+| `estimated` | 0.45 | Only an operator estimate exists. |
+
+Default wage research uses cited public labor data as a fallback: [BLS May 2024 median annual
+wages for software developers and software QA analysts/testers](https://www.bls.gov/ooh/computer-and-information-technology/software-developers.htm),
+converted to hourly rates by dividing by 2,080 work hours. [DORA-style delivery
+reliability](https://dora.dev/guides/dora-metrics-four-keys/) is tracked as separate dimensions
+rather than collapsed into one magic number. [McKinsey's generative-AI productivity
+analysis](https://www.mckinsey.com/capabilities/mckinsey-digital/our-insights/the-economic-potential-of-generative-ai-the-next-productivity-frontier)
+and the [GitHub Copilot controlled study](https://arxiv.org/abs/2302.06590) are useful market
+context, not guaranteed customer ROI.
+
 ## Quickstart
 
 ```bash
@@ -125,6 +194,7 @@ npx proofloop manifest --dense          # compact repo status for agents
 npx proofloop ui contract --dense       # stable selectors/actions/assertions
 npx proofloop target --write-runner-plan # benchmark plan + context report + runner discovery
 npx proofloop maturity --target-level 5 --write # maturity report + missing layers
+npx proofloop productivity --write --baseline-source benchmark # verified productivity pack
 npx proofloop prompt                    # kickoff prompt to paste into your coding agent
 npx proofloop this-repo --goal "proofloop my latest updates" --write-runner-plan
 npx proofloop runner run --plan proofloop.runner.json --budget-usd 100
@@ -239,6 +309,7 @@ script. With neither, it reports `no_gate` with exit code 2. An unconfigured gat
 | `proofloop manifest [--json\|--dense]` | Print project status: stack, commands, proof gates, workflows, UI contracts, blockers. |
 | `proofloop target [--url <url>] [--write-runner-plan] [--write-browser-smoke] [--json]` | Recommend benchmark families from a URL/codebase, detect or scaffold configured adapters, and write target/runner plan receipts plus `.proofloop/reports/latest.md`. |
 | `proofloop maturity [--dense\|--json\|--write] [--target-level 5]` | Report the codebase/app's agent-era maturity level, missing proof layers, next actions, and Mermaid progression/projection charts. |
+| `proofloop productivity [--write] [--baseline-source <source>]` | Write a productivity ledger, wage research, baseline estimates, scorecard, and Vega-Lite charts for verified useful work. |
 | `proofloop docs agents --dense` | Print compact agent workflow instructions. |
 | `proofloop ui contract\|component <id>` | Discover stable `data-testid` and `data-proofloop` selectors. |
 | `proofloop template --list` / `proofloop template <id> --write` | List or write starter proof-loop templates. |

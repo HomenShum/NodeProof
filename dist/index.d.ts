@@ -21,6 +21,7 @@ export * from "./layeredPlan";
 export * from "./targetPlan";
 export * from "./hosted";
 export * from "./maturity";
+export * from "./productivity";
 export * from "./contextReport";
 export * from "./receipts";
 export { runCli } from "./cli";

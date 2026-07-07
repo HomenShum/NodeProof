@@ -66,6 +66,14 @@ describe("proofloop.live site", () => {
     expect(normalizedHtml).toContain("Agent OS / benchmark-ready");
   });
 
+  it("shows the productivity proof pack command without making fake ROI claims", () => {
+    expect(normalizedHtml).toContain("Verified productivity");
+    expect(normalizedHtml).toContain("Measure useful work, not agent activity");
+    expect(normalizedHtml).toContain("npx proofloop productivity --write --baseline-source benchmark");
+    expect(normalizedHtml).toContain("A failed or missing proof produces no productivity claim");
+    expect(normalizedHtml).toContain("Cost per passed proof");
+  });
+
   it("shows the real, current package facts instead of a stale or invented version", () => {
     expect(pkg.version).toBeTruthy();
     expect(normalizedHtml).toContain(`v${pkg.version}`);

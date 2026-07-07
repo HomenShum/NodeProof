@@ -12,6 +12,7 @@
  *   proofloop target [--url <url>] [--write-runner-plan] [--write-browser-smoke]
  *   proofloop this-repo [--goal ...] [--write-runner-plan] [--run]
  *   proofloop maturity [--dense|--json|--write] [--target-level 5]
+ *   proofloop productivity [--write] [--baseline-source benchmark] [--dev-hours 2] [--qa-hours 1]
  *   proofloop manifest|docs|template|workflow|ui|resume|report|charts|receipt|mcp
  *
  * Exit codes are per-command (documented at each case). Zero runtime deps.
@@ -65,6 +66,12 @@ import {
   formatAgentEraMaturityDense,
   writeAgentEraMaturityReport,
 } from "./maturity";
+import {
+  buildProductivityProofPack,
+  formatProductivityDense,
+  writeProductivityProofPack,
+  type ProductivityBaselineSource,
+} from "./productivity";
 
 type Flags = { positional: string[]; options: Record<string, string | boolean> };
 export const MCP_SERVER_RUNNING = -999;
@@ -133,6 +140,7 @@ function usage(): string {
     "  hosted intake|validate|dashboard|run   create or resume a hosted URL proof packet",
     "  target [--url <url>] [--write-runner-plan] [--write-browser-smoke]   recommend benchmark families and write target/context receipts",
     "  maturity [--dense|--json|--write] [--target-level 5]   judge agent-era codebase/app maturity and missing layers",
+    "  productivity [--write] [--baseline-source <source>]   write wage-equivalent verified productivity receipts and charts",
     "  mcp                        start the optional read-only MCP server",
     "  prompt                     print the one-prompt kickoff",
     "  this-repo [--goal <text>] [--write-runner-plan] [--run]",
@@ -226,6 +234,9 @@ export function runCli(argv: string[]): number | Promise<number> {
 
     case "maturity":
       return runMaturityCommand(options, root);
+
+    case "productivity":
+      return runProductivityCommand(options, root);
 
     case "mcp":
       startMcpServer({ root });
@@ -368,6 +379,12 @@ function parseCsv(value: string | undefined): string[] {
 
 function parseReceiptKind(value: string | undefined): ReceiptKind | undefined {
   if (value === undefined || value === "nodeagent-ingestion") return "nodeagent-ingestion";
+  return undefined;
+}
+
+function parseBaselineSource(value: string | undefined): ProductivityBaselineSource | undefined {
+  if (value === undefined) return "estimated";
+  if (value === "measured" || value === "historical" || value === "benchmark" || value === "research" || value === "estimated") return value;
   return undefined;
 }
 
@@ -570,6 +587,54 @@ function runMaturityCommand(options: Record<string, string | boolean>, root: str
     console.log(formatAgentEraMaturityDense(report));
   } else {
     console.log(report.reportMarkdown);
+  }
+  return 0;
+}
+
+function runProductivityCommand(options: Record<string, string | boolean>, root: string): number {
+  const baselineSource = parseBaselineSource(str(options["baseline-source"]));
+  if (!baselineSource) {
+    console.error("proofloop productivity: unsupported --baseline-source. Use measured, historical, benchmark, research, or estimated.");
+    return 2;
+  }
+  const common = {
+    root,
+    ...(str(options["run-id"]) !== undefined ? { runId: str(options["run-id"])! } : {}),
+    ...(str(options["workflow-id"]) !== undefined ? { workflowId: str(options["workflow-id"])! } : {}),
+    baselineSource,
+    ...(num(options["dev-hours"]) !== undefined ? { devHours: num(options["dev-hours"])! } : {}),
+    ...(num(options["qa-hours"]) !== undefined ? { qaHours: num(options["qa-hours"])! } : {}),
+    ...(num(options["research-hours"]) !== undefined ? { researchHours: num(options["research-hours"])! } : {}),
+    ...(num(options["designer-hours"]) !== undefined ? { designerHours: num(options["designer-hours"])! } : {}),
+    ...(num(options.confidence) !== undefined ? { confidence: num(options.confidence)! } : {}),
+    ...(num(options["human-review-hours"]) !== undefined ? { humanReviewHours: num(options["human-review-hours"])! } : {}),
+    ...(num(options["model-cost-usd"]) !== undefined ? { modelCostUsd: num(options["model-cost-usd"])! } : {}),
+    ...(num(options["browser-cost-usd"]) !== undefined ? { browserCostUsd: num(options["browser-cost-usd"])! } : {}),
+    ...(num(options["ci-cost-usd"]) !== undefined ? { ciCostUsd: num(options["ci-cost-usd"])! } : {}),
+    regressionAdded: options["regression-added"] === true,
+    liveBrowserVerified: options["live-browser-verified"] === true,
+    deterministicGateAdded: options["deterministic-gate-added"] === true ? true : undefined,
+  };
+  if (options.write === true) {
+    const result = writeProductivityProofPack({
+      ...common,
+      ...(str(options.out) !== undefined ? { outDir: str(options.out)! } : {}),
+    });
+    if (options.json === true) {
+      console.log(JSON.stringify({ runDir: result.runDir, files: result.files, ledger: result.pack.ledger }, null, 2));
+    } else {
+      console.log(`proofloop productivity: wrote ${result.files.ledger}`);
+      console.log(`proofloop productivity: wrote ${result.files.scorecard}`);
+      for (const chart of result.files.charts) console.log(`proofloop productivity: wrote ${chart}`);
+      console.log(formatProductivityDense(result.pack, result.runDir));
+    }
+    return 0;
+  }
+  const pack = buildProductivityProofPack(common);
+  if (options.json === true) {
+    console.log(JSON.stringify(pack, null, 2));
+  } else {
+    console.log(formatProductivityDense(pack));
   }
   return 0;
 }
