@@ -6,83 +6,38 @@ const root = process.cwd();
 const html = readFileSync(join(root, "public", "index.html"), "utf8");
 const normalizedHtml = html.replace(/\s+/g, " ");
 const script = readFileSync(join(root, "public", "app.js"), "utf8");
-const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
-  version?: string;
-  license?: string;
-};
 const vercelConfig = JSON.parse(readFileSync(join(root, "vercel.json"), "utf8")) as {
   buildCommand?: string;
   outputDirectory?: string;
 };
 
 describe("proofloop.live site", () => {
-  it("leads with the real install command, not a fabricated dashboard", () => {
-    expect(normalizedHtml).toContain("npx proofloop init");
-    expect(normalizedHtml).toContain("npx proofloop gate");
-    expect(normalizedHtml).toContain("The gate decides");
+  it("is only a URL/GitHub intake on first load", () => {
+    expect(normalizedHtml).toContain("Put your URL or GitHub in");
+    expect(normalizedHtml).toContain('data-testid="target-input"');
+    expect(normalizedHtml).toContain('data-testid="target-submit"');
+    expect(normalizedHtml).toContain("https://your-app.com or https://github.com/org/repo");
+
+    expect(normalizedHtml).not.toContain("The gate decides");
+    expect(normalizedHtml).not.toContain("Build a proof loop");
+    expect(normalizedHtml).not.toContain("Enter any URL and ProofLoop it with benchmark tasks");
+    expect(normalizedHtml).not.toContain("Agent-era maturity");
+    expect(normalizedHtml).not.toContain("Verified productivity");
+    expect(normalizedHtml).not.toContain("github.com/HomenShum/proofloop");
   });
 
-  it("includes the guided setup builder with local templates", () => {
-    expect(normalizedHtml).toContain("Build a proof loop");
-    expect(normalizedHtml).toContain("Describe it in your own words");
-    expect(normalizedHtml).toContain("Live URL flow");
-    expect(normalizedHtml).toContain("Accounting agent");
-    expect(normalizedHtml).toContain("Memory pipeline");
-    expect(normalizedHtml).toContain("Research copilot");
-    expect(script).toContain("data-builder-input");
-    expect(script).toContain("npx proofloop target --url");
+  it("keeps the GitHub path honest instead of sending github.com to live-browser automation", () => {
+    expect(script).toContain("githubRepo");
+    expect(script).toContain("git clone");
+    expect(script).toContain("npx proofloop init --agent auto --live");
+    expect(script).toContain("npx proofloop maturity --target-level 5 --write");
   });
 
-  it("states the hosted honesty boundary without blurring scorer claims", () => {
-    expect(normalizedHtml).toContain("product-path proof");
-    expect(normalizedHtml).toContain("proxy benchmark proof");
-    expect(normalizedHtml).toContain("official scorer output");
-    expect(normalizedHtml).toContain("managed runner");
-    expect(normalizedHtml).toContain("does not collect raw credentials");
-    expect(normalizedHtml).toContain("explicitly recorded judge contract");
-  });
-
-  it("includes a hosted URL intake packet builder with consent and artifact boundaries", () => {
-    expect(normalizedHtml).toContain("Enter any URL and ProofLoop it with benchmark tasks");
-    expect(normalizedHtml).toContain("Target URL");
-    expect(normalizedHtml).toContain("App type");
-    expect(normalizedHtml).toContain("Auth/session notes");
-    expect(normalizedHtml).toContain("Model budget");
-    expect(normalizedHtml).toContain("Benchmark proxy families");
-    expect(normalizedHtml).toContain("Submit run");
-    expect(normalizedHtml).toContain("I own or am authorized to test this target");
-    expect(normalizedHtml).toContain("screenshots, video, trace, scorecard");
-    expect(script).toContain("data-hosted-target-url");
-    expect(script).toContain("npx proofloop hosted intake");
-    expect(script).toContain("/api/hosted/submit");
-    expect(script).toContain("/api/hosted/status?runId=");
-  });
-
-  it("shows the agent-era maturity report command and levels", () => {
-    expect(normalizedHtml).toContain("Agent-era maturity");
-    expect(normalizedHtml).toContain("npx proofloop maturity --target-level 5 --write");
-    expect(normalizedHtml).toContain("Prompt-era demo");
-    expect(normalizedHtml).toContain("Long-running proof loop");
-    expect(normalizedHtml).toContain("Agent OS / benchmark-ready");
-  });
-
-  it("shows the productivity proof pack command without making fake ROI claims", () => {
-    expect(normalizedHtml).toContain("Verified productivity");
-    expect(normalizedHtml).toContain("Measure useful work, not agent activity");
-    expect(normalizedHtml).toContain("npx proofloop productivity --write --baseline-source benchmark");
-    expect(normalizedHtml).toContain("A failed or missing proof produces no productivity claim");
-    expect(normalizedHtml).toContain("Cost per passed proof");
-  });
-
-  it("shows the real, current package facts instead of a stale or invented version", () => {
-    expect(pkg.version).toBeTruthy();
-    expect(normalizedHtml).toContain(`v${pkg.version}`);
-    expect(normalizedHtml).toContain("npm latest v0.2.0 pending npm OTP");
-    expect(normalizedHtml).toContain(pkg.license || "MIT");
-  });
-
-  it("only submits to the proofloop hosted API and keeps credential forms out of the page", () => {
+  it("submits live URLs through the hosted API with the existing permission gate", () => {
     expect(script).toContain('fetch("/api/hosted/submit"');
+    expect(script).toContain("requestedBenchmarkFamilies");
+    expect(script).toContain("live-browser-smoke");
+    expect(script).toContain("ownsOrAuthorized");
     expect(script).not.toContain("XMLHttpRequest");
     expect(normalizedHtml).not.toContain("<form");
   });

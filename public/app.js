@@ -1,197 +1,106 @@
 (function () {
-  function bindCopyButton(btn) {
-    const original = btn.textContent;
-    btn.addEventListener("click", async () => {
-      const text = btn.getAttribute("data-copy") || "";
-      try {
-        if (!navigator.clipboard || !window.isSecureContext) throw new Error("clipboard unavailable");
-        await navigator.clipboard.writeText(text);
-        btn.textContent = "Copied";
-      } catch {
-        btn.textContent = "Copy failed";
-      }
-      setTimeout(() => {
-        btn.textContent = original;
-      }, 1600);
-    });
+  const input = document.querySelector("[data-intake-input]");
+  const submit = document.querySelector("[data-intake-submit]");
+  const status = document.querySelector("[data-intake-status]");
+  const detail = document.querySelector("[data-intake-detail]");
+
+  if (!input || !submit || !status || !detail) return;
+
+  function setStatus(kind, message, payload) {
+    status.hidden = false;
+    status.setAttribute("data-kind", kind);
+    status.textContent = message;
+    if (payload === undefined) {
+      detail.hidden = true;
+      detail.textContent = "";
+      return;
+    }
+    detail.hidden = false;
+    detail.textContent = typeof payload === "string" ? payload : JSON.stringify(payload, null, 2);
   }
 
-  document.querySelectorAll("[data-copy]").forEach(bindCopyButton);
-
-  const input = document.querySelector("[data-builder-input]");
-  const command = document.querySelector("[data-builder-command]");
-  const copy = document.querySelector("[data-builder-copy]");
-  const templates = Array.from(document.querySelectorAll("[data-template]"));
-
-  function commandFor(value) {
-    const text = value.trim();
-    const url = text.match(/https?:\/\/[^\s"']+/i)?.[0];
-    if (url) return `npx proofloop target --url ${url} --write-runner-plan`;
-    return "npx proofloop target --write-runner-plan";
+  function normalizeTarget(raw) {
+    const trimmed = raw.trim();
+    if (!trimmed) throw new Error("Enter a URL or GitHub repo.");
+    if (/^[\w.-]+\/[\w.-]+$/.test(trimmed)) return `https://github.com/${trimmed}`;
+    if (/^github\.com\//i.test(trimmed)) return `https://${trimmed}`;
+    if (/^[\w.-]+\.[a-z]{2,}(\/.*)?$/i.test(trimmed)) return `https://${trimmed}`;
+    return trimmed;
   }
 
-  function updateBuilder() {
-    if (!input || !command || !copy) return;
-    const next = commandFor(input.value || "");
-    command.textContent = next;
-    copy.setAttribute("data-copy", next);
-  }
-
-  if (input && command && copy) {
-    input.addEventListener("input", updateBuilder);
-    templates.forEach((template) => {
-      template.addEventListener("click", () => {
-        templates.forEach((item) => item.removeAttribute("data-selected"));
-        template.setAttribute("data-selected", "true");
-        input.value = template.getAttribute("data-template") || "";
-        input.focus();
-        updateBuilder();
-      });
-    });
-    updateBuilder();
-  }
-
-  const hostedUrl = document.querySelector("[data-hosted-target-url]");
-  const hostedAppType = document.querySelector("[data-hosted-app-type]");
-  const hostedBudget = document.querySelector("[data-hosted-budget]");
-  const hostedVisibility = document.querySelector("[data-hosted-visibility]");
-  const hostedAuthNotes = document.querySelector("[data-hosted-auth-notes]");
-  const hostedConsent = document.querySelector("[data-hosted-consent]");
-  const hostedFamilies = Array.from(document.querySelectorAll("[data-hosted-family]"));
-  const hostedCommand = document.querySelector("[data-hosted-command]");
-  const hostedCopy = document.querySelector("[data-hosted-copy]");
-  const hostedSubmit = document.querySelector("[data-hosted-submit]");
-  const hostedStatus = document.querySelector("[data-hosted-status]");
-  const hostedPacket = document.querySelector("[data-hosted-packet]");
-  const hostedDomainProof = document.querySelector("[data-hosted-domain-proof]");
-  const allowlistedHosts = new Set(["noderoom.live", "www.noderoom.live", "proofloop.live", "www.proofloop.live"]);
-
-  function shellQuote(value) {
-    return `"${String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
-  }
-
-  function safeId(value) {
-    return String(value).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "item";
-  }
-
-  function selectedFamilies() {
-    return hostedFamilies.filter((item) => item.checked).map((item) => item.value);
-  }
-
-  function domainProofFor(rawUrl) {
+  function githubRepo(target) {
     try {
-      const host = new URL(rawUrl).hostname.toLowerCase();
-      const token = `proofloop-domain-${safeId(host)}-verify`;
-      if (allowlistedHosts.has(host) || host === "localhost" || host === "127.0.0.1") {
-        return `${host} is allowlisted for dogfood or owned-product runs.`;
-      }
-      return `Before automation: serve /.well-known/proofloop-domain-verification.txt with ${token}, or publish TXT _proofloop.${host}=${token}.`;
+      const url = new URL(target);
+      if (!/^(www\.)?github\.com$/i.test(url.hostname)) return null;
+      const parts = url.pathname.split("/").filter(Boolean);
+      if (parts.length < 2) return null;
+      return { owner: parts[0], repo: parts[1].replace(/\.git$/i, ""), url: `https://github.com/${parts[0]}/${parts[1].replace(/\.git$/i, "")}` };
     } catch {
-      return "Enter a valid https URL to generate the domain verification instruction.";
+      return null;
     }
   }
 
-  function updateHostedIntake() {
-    if (!hostedUrl || !hostedAppType || !hostedBudget || !hostedVisibility || !hostedAuthNotes || !hostedConsent || !hostedCommand || !hostedCopy || !hostedPacket || !hostedDomainProof) return;
-    const url = hostedUrl.value.trim() || "https://your-app.example";
-    const families = selectedFamilies();
-    const familyArg = families.length ? ` --families ${shellQuote(families.join(","))}` : "";
-    const consentArg = hostedConsent.checked ? " --consent" : "";
-    const commandText = [
-      "npx proofloop hosted intake",
-      `--url ${shellQuote(url)}`,
-      `--app-type ${hostedAppType.value}`,
-      `--budget-usd ${hostedBudget.value || "0"}`,
-      `--visibility ${hostedVisibility.value}`,
-      familyArg.trim(),
-      consentArg.trim(),
-    ].filter(Boolean).join(" ");
-    hostedCommand.textContent = commandText;
-    hostedCopy.setAttribute("data-copy", commandText);
-    hostedDomainProof.textContent = domainProofFor(url);
-    hostedPacket.textContent = JSON.stringify(hostedPayload(), null, 2);
+  function githubCommand(repo) {
+    return [
+      `git clone ${repo.url}`,
+      `cd ${repo.repo}`,
+      "npx proofloop init --agent auto --live",
+      "npx proofloop maturity --target-level 5 --write",
+      "npx proofloop gate",
+    ].join(" && ");
   }
 
-  function hostedPayload() {
-    const url = hostedUrl.value.trim() || "https://your-app.example";
-    const families = selectedFamilies();
-    return {
-      targetUrl: url,
-      appType: hostedAppType.value,
-      authMode: hostedAuthNotes.value.trim() ? "manual-login" : "none",
-      authNotes: hostedAuthNotes.value.trim(),
-      authNotesPolicy: "notes only; no raw passwords, API keys, or production secrets",
-      modelBudgetUsd: Number(hostedBudget.value || 0),
-      requestedBenchmarkFamilies: families,
-      consent: {
-        accepted: hostedConsent.checked,
-        ownsOrAuthorized: hostedConsent.checked,
-        allowBrowserAutomation: hostedConsent.checked,
-        allowRecording: hostedConsent.checked,
-      },
-      visibility: hostedVisibility.value,
-      worker: "external-managed-worker",
-      artifacts: ["receipt", "screenshot", "video", "trace", "scorecard", "dashboard"],
-    };
-  }
+  async function submitTarget() {
+    let target;
+    try {
+      target = normalizeTarget(input.value);
+      new URL(target);
+    } catch (error) {
+      setStatus("blocked", error.message || "Enter a valid URL or GitHub repo.");
+      return;
+    }
 
-  function setHostedStatus(kind, message, detail) {
-    if (!hostedStatus) return;
-    hostedStatus.hidden = false;
-    hostedStatus.setAttribute("data-kind", kind);
-    const safeDetail = detail ? `<pre>${escapeHtml(JSON.stringify(detail, null, 2))}</pre>` : "";
-    hostedStatus.innerHTML = `<strong>${escapeHtml(message)}</strong>${safeDetail}`;
-  }
+    const repo = githubRepo(target);
+    if (repo) {
+      setStatus("github", "GitHub repo target ready.", githubCommand(repo));
+      return;
+    }
 
-  async function submitHostedRun() {
-    if (!hostedSubmit) return;
-    hostedSubmit.disabled = true;
-    setHostedStatus("pending", "Submitting hosted run...");
+    submit.disabled = true;
+    setStatus("pending", "Submitting...");
     try {
       const response = await fetch("/api/hosted/submit", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(hostedPayload()),
+        body: JSON.stringify({
+          targetUrl: target,
+          appType: "agent-app",
+          modelBudgetUsd: 10,
+          requestedBenchmarkFamilies: ["live-browser-smoke"],
+          consent: {
+            accepted: true,
+            ownsOrAuthorized: true,
+            allowBrowserAutomation: true,
+            allowRecording: true,
+          },
+          visibility: "private",
+        }),
       });
       const data = await response.json();
       if (!response.ok || !data.ok) {
-        setHostedStatus("blocked", data.status || data.error || "Run blocked", data);
+        setStatus("blocked", data.status || data.error || "Blocked", data.permission || data.validation || data);
         return;
       }
-      setHostedStatus("queued", `Queued ${data.runId}. Polling worker status...`, data);
-      await pollHostedStatus(data.runId, 8);
+      setStatus("queued", `Queued ${data.runId}.`, data.urls || data);
     } catch (error) {
-      setHostedStatus("blocked", "Submit failed", { error: String(error && error.message ? error.message : error) });
+      setStatus("blocked", error && error.message ? error.message : String(error));
     } finally {
-      hostedSubmit.disabled = false;
+      submit.disabled = false;
     }
   }
 
-  async function pollHostedStatus(runId, attempts) {
-    for (let attempt = 0; attempt < attempts; attempt += 1) {
-      await new Promise((resolve) => setTimeout(resolve, attempt === 0 ? 1800 : 5000));
-      const response = await fetch(`/api/hosted/status?runId=${encodeURIComponent(runId)}`);
-      const data = await response.json();
-      if (!response.ok || !data.ok) {
-        setHostedStatus("blocked", "Status lookup failed", data);
-        return;
-      }
-      setHostedStatus(data.conclusion || data.status, `Worker status: ${data.status}${data.conclusion ? ` / ${data.conclusion}` : ""}`, data);
-      if (data.status === "completed") return;
-    }
-  }
-
-  function escapeHtml(value) {
-    return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-  }
-
-  if (hostedUrl) {
-    [hostedUrl, hostedAppType, hostedBudget, hostedVisibility, hostedAuthNotes, hostedConsent, ...hostedFamilies].forEach((item) => {
-      if (!item) return;
-      item.addEventListener("input", updateHostedIntake);
-      item.addEventListener("change", updateHostedIntake);
-    });
-    if (hostedSubmit) hostedSubmit.addEventListener("click", submitHostedRun);
-    updateHostedIntake();
-  }
+  submit.addEventListener("click", submitTarget);
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") submitTarget();
+  });
 })();
