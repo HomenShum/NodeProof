@@ -24,7 +24,7 @@ export declare const DEFAULT_GATE_COMMAND = "npx proofloop gate --check";
 export declare const GUARDED_CONTENT_PATH_PREFIXES: readonly string[];
 export type ProofloopHooksConfig = {
     schema: "proofloop-hooks-v1";
-    worker: "claude-code";
+    worker: ProofloopHookWorker;
     generatedAt: string;
     /**
      * "check-only" (package default): read .proofloop/gate-state.json directly
@@ -56,7 +56,7 @@ export type ProofloopHooksConfig = {
 };
 export type ProofloopHooksInstallOptions = {
     root?: string;
-    /** Write .claude/settings.local.json instead of .claude/settings.json. */
+    /** Write the host's local settings file instead of the shared settings file. */
     local?: boolean;
     worker?: string;
     /** Override the gate with a real command (switches gateMode to "command"). */
@@ -68,6 +68,7 @@ export type ProofloopHooksInstallOptions = {
     toolUseLog?: boolean;
     now?: () => Date;
 };
+export type ProofloopHookWorker = "claude-code" | "codex";
 export type ProofloopHooksInstallResult = {
     root: string;
     settingsPath: string;
@@ -124,6 +125,18 @@ export declare function buildHooksConfig(options?: ProofloopHooksInstallOptions)
  * PROOFLOOP_HOOK_COMMAND_PREFIX is recognized as ours and not duplicated).
  */
 export declare function mergeHookEntries(settings: JsonRecord, options?: {
+    toolUseLog?: boolean;
+}): {
+    addedStop: boolean;
+    addedPreToolUse: boolean;
+    addedPostToolUseLog: boolean;
+};
+/**
+ * Codex hook configuration uses a flat hooks array. The command scripts are
+ * the same self-contained Node scripts used by Claude Code: they consume stdin
+ * JSON and keep Proof Loop's Stop/PreToolUse/PostToolUse semantics host-neutral.
+ */
+export declare function mergeCodexHookEntries(settings: JsonRecord, options?: {
     toolUseLog?: boolean;
 }): {
     addedStop: boolean;

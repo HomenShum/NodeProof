@@ -24,4 +24,8 @@ export * from "./maturity";
 export * from "./productivity";
 export * from "./contextReport";
 export * from "./receipts";
+export * from "./agentAdapters";
+export * from "./agentLoop";
+export * from "./codexRelaunch";
+export * from "./providerSetup";
 export { runCli } from "./cli";

@@ -9,6 +9,25 @@ the gate decides when it is actually done.
 
 Zero runtime dependencies. Node >= 20. Works on any repo.
 
+## Agent and Provider Interop
+
+Codex and Claude Code can install local hook enforcement; other hosts are represented as adapter receipts until a launch, trace-capture, and gate-enforcement surface exists:
+
+```bash
+npx proofloop agents list
+npx proofloop agents setup codex --local
+npx proofloop agents setup claude-code --local
+npx proofloop codex-loop --dry-run
+```
+
+Provider setup receipts cover Butterbase, Neo4j, RocketRide, Daytona, Cognee, and Nebius without treating missing credentials as success:
+
+```bash
+npx proofloop providers setup all
+```
+
+See `docs/interoperability.md` and `docs/local-bench-setup.md` for LangChain/LangSmith/Harbor boundaries and local Finch, FinAuditing, and WorkstreamBench setup recipes.
+
 ## ProofLoop Live
 
 `proofloop.live` is the managed-service intake for teams that want Proof Loop run against their app

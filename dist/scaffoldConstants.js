@@ -80,4 +80,8 @@ exports.DEFAULT_PROTECTED_EXTRA_PATHS = [
     ".proofloop/tooluse/",
     ".proofloop/hooks/",
     ".github/workflows/proofloop-gate.yml",
+    ".claude/settings.json",
+    ".claude/settings.local.json",
+    ".codex/hooks.json",
+    ".codex/hooks.local.json",
 ];

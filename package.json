@@ -28,7 +28,7 @@
   "files": [
     "dist",
     "templates",
-    "docs/agent-os",
+    "docs",
     "README.md",
     "LICENSE"
   ],

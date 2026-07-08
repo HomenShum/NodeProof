@@ -17,6 +17,10 @@ exports.runCli = runCli;
  *   proofloop this-repo [--goal ...] [--write-runner-plan] [--run]
  *   proofloop maturity [--dense|--json|--write] [--target-level 5]
  *   proofloop productivity [--write] [--baseline-source benchmark] [--dev-hours 2] [--qa-hours 1]
+ *   proofloop agents list|setup [codex|claude-code|cursor|windsurf|devin|generic-cli|all]
+ *   proofloop codex-loop [--dry-run] [--max-attempts 2]
+ *   proofloop codex reprompt|relaunch [run-id]
+ *   proofloop providers setup [butterbase|neo4j|rocketride|daytona|cognee|nebius|all]
  *   proofloop manifest|docs|template|workflow|ui|resume|report|charts|receipt|mcp
  *
  * Exit codes are per-command (documented at each case). Zero runtime deps.
@@ -38,6 +42,10 @@ const targetPlan_1 = require("./targetPlan");
 const hosted_1 = require("./hosted");
 const maturity_1 = require("./maturity");
 const productivity_1 = require("./productivity");
+const agentAdapters_1 = require("./agentAdapters");
+const agentLoop_1 = require("./agentLoop");
+const codexRelaunch_1 = require("./codexRelaunch");
+const providerSetup_1 = require("./providerSetup");
 exports.MCP_SERVER_RUNNING = -999;
 /** Parse `--flag`, `--flag value`, `--flag=value`, and positionals. */
 function parseArgs(argv) {
@@ -105,6 +113,10 @@ function usage() {
         "  target [--url <url>] [--write-runner-plan] [--write-browser-smoke]   recommend benchmark families and write target/context receipts",
         "  maturity [--dense|--json|--write] [--target-level 5]   judge agent-era codebase/app maturity and missing layers",
         "  productivity [--write] [--baseline-source <source>]   write wage-equivalent verified productivity receipts and charts",
+        "  agents list|setup [id|all]   install/report agent adapters for Codex, Claude Code, and wrapper hosts",
+        "  codex-loop [--dry-run] [--max-attempts 2]   run gate, write repair prompt, optionally relaunch Codex",
+        "  codex reprompt|relaunch [run-id]   show or launch the latest Codex repair prompt",
+        "  providers setup [id|all]   write provider setup receipts for live integration lanes",
         "  mcp                        start the optional read-only MCP server",
         "  prompt                     print the one-prompt kickoff",
         "  this-repo [--goal <text>] [--write-runner-plan] [--run]",
@@ -180,6 +192,14 @@ function runCli(argv) {
             return runMaturityCommand(options, root);
         case "productivity":
             return runProductivityCommand(options, root);
+        case "agents":
+            return runAgentsCommand(positional[1], positional[2], options, root);
+        case "codex-loop":
+            return runCodexLoopCommand(options, root);
+        case "codex":
+            return runCodexCommand(positional[1], positional[2], options, root);
+        case "providers":
+            return runProvidersCommand(positional[1], positional[2], options, root);
         case "mcp":
             (0, mcp_1.startMcpServer)({ root });
             return exports.MCP_SERVER_RUNNING;
@@ -193,6 +213,128 @@ function runCli(argv) {
             console.error(`proofloop: unknown command "${command}".`);
             console.error(usage());
             return 2;
+    }
+}
+async function runAgentsCommand(sub, adapter, options, root) {
+    if (sub === undefined || sub === "list") {
+        const payload = agentAdapters_1.PROOFLOOP_AGENT_ADAPTER_IDS.map((id) => ({ id, setup: `npx proofloop agents setup ${id}` }));
+        console.log(options.json === true ? JSON.stringify(payload, null, 2) : `${payload.map((entry) => `${entry.id}: ${entry.setup}`).join("\n")}\n`);
+        return 0;
+    }
+    if (sub !== "setup") {
+        console.error("proofloop agents: expected `list` or `setup`.");
+        return 2;
+    }
+    try {
+        const target = adapter ?? "codex";
+        const ids = target === "all" ? [...agentAdapters_1.PROOFLOOP_AGENT_ADAPTER_IDS] : [(0, agentAdapters_1.parseProofloopAgentAdapterId)(target)];
+        const receipts = [];
+        for (const id of ids) {
+            receipts.push(await (0, agentAdapters_1.setupProofloopAgentAdapter)({
+                adapterId: id,
+                root,
+                local: options.local === true,
+                ...(str(options.command) !== undefined ? { command: str(options.command) } : {}),
+            }));
+        }
+        if (options.json === true) {
+            console.log(JSON.stringify(receipts, null, 2));
+        }
+        else {
+            for (const receipt of receipts) {
+                console.log(`proofloop agents: ${receipt.adapterId} ${receipt.status} -> ${receipt.receiptPath}`);
+                console.log(`  ${receipt.message}`);
+                if (receipt.settingsPath)
+                    console.log(`  hooks=${receipt.settingsPath}`);
+                if (receipt.launchCommand)
+                    console.log(`  launch=${receipt.launchCommand}`);
+            }
+        }
+        return receipts.every((receipt) => receipt.status === "ready") ? 0 : 1;
+    }
+    catch (error) {
+        console.error(`proofloop agents: ${error instanceof Error ? error.message : String(error)}`);
+        return 2;
+    }
+}
+async function runCodexLoopCommand(options, root) {
+    try {
+        const agentId = (0, agentAdapters_1.parseProofloopAgentAdapterId)(str(options.agent) ?? "codex");
+        const result = await (0, agentLoop_1.runProofloopAgentLoop)({
+            root,
+            agentId,
+            dryRun: options["dry-run"] === true,
+            ...(str(options.command) !== undefined ? { command: str(options.command) } : {}),
+            ...(num(options["max-attempts"]) !== undefined ? { maxAttempts: num(options["max-attempts"]) } : {}),
+            ...(str(options["run-id"]) !== undefined ? { runId: str(options["run-id"]) } : {}),
+        });
+        console.log(`proofloop codex-loop: ${result.passed ? "passed" : "needs-repair"} run=${result.runId} attempts=${result.attempts}`);
+        console.log(`  runDir=${result.runDir}`);
+        if (result.repairPromptPath)
+            console.log(`  repairPrompt=${result.repairPromptPath}`);
+        return result.exitCode;
+    }
+    catch (error) {
+        console.error(`proofloop codex-loop: ${error instanceof Error ? error.message : String(error)}`);
+        return 2;
+    }
+}
+function runCodexCommand(sub, runId, options, root) {
+    if (sub !== "reprompt" && sub !== "relaunch") {
+        console.error("proofloop codex: expected `reprompt` or `relaunch`.");
+        return 2;
+    }
+    const runDir = runId ? (0, codexRelaunch_1.codexRunDir)(root, runId) : (0, codexRelaunch_1.latestProofloopRunDir)(root);
+    if (!runDir) {
+        console.error("proofloop codex: no .proofloop/runs/<run-id> directory found. Run `npx proofloop codex-loop --dry-run` first.");
+        return 2;
+    }
+    const promptPath = (0, node_path_1.join)(runDir, "codex-reprompt.md");
+    const prompt = (0, codexRelaunch_1.readCodexReprompt)(promptPath);
+    if (!prompt) {
+        console.error(`proofloop codex: no reprompt found at ${promptPath}.`);
+        return 2;
+    }
+    if (sub === "reprompt") {
+        console.log(prompt);
+        return 0;
+    }
+    const result = (0, agentAdapters_1.launchProofloopAgentAdapter)({
+        adapterId: "codex",
+        promptPath,
+        targetDir: root,
+        ...(str(options.command) !== undefined ? { command: str(options.command) } : {}),
+    });
+    console.log(JSON.stringify(result, null, 2));
+    return result.launched && result.status !== "failed" ? 0 : 1;
+}
+async function runProvidersCommand(sub, provider, options, root) {
+    if (sub !== "setup") {
+        console.error("proofloop providers: expected `setup`.");
+        return 2;
+    }
+    try {
+        const target = provider ?? "all";
+        const ids = target === "all" ? [...providerSetup_1.PROOFLOOP_PROVIDER_IDS] : [(0, providerSetup_1.parseProofloopProviderId)(target)];
+        const receipts = await (0, providerSetup_1.setupProofloopProviders)(ids, {
+            root,
+            ...(num(options["timeout-ms"]) !== undefined ? { timeoutMs: num(options["timeout-ms"]) } : {}),
+        });
+        if (options.json === true) {
+            console.log(JSON.stringify(receipts, null, 2));
+        }
+        else {
+            for (const receipt of receipts) {
+                console.log(`proofloop providers: ${receipt.providerId} ${receipt.status} -> .proofloop/setup/providers/${receipt.providerId}.json`);
+                for (const check of receipt.checks)
+                    console.log(`  ${check.id}: ${check.status} - ${check.detail}`);
+            }
+        }
+        return receipts.every((receipt) => receipt.status === "ready") ? 0 : 1;
+    }
+    catch (error) {
+        console.error(`proofloop providers: ${error instanceof Error ? error.message : String(error)}`);
+        return 2;
     }
 }
 function runHostedCommand(sub, options, root) {

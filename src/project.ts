@@ -44,6 +44,9 @@ const GENERATED_PACKAGE_SCRIPTS: Record<string, string> = {
   "proofloop:target": "npx proofloop target --write-runner-plan",
   "proofloop:report": "npx proofloop report latest",
   "proofloop:charts": "npx proofloop charts latest",
+  "proofloop:agents": "npx proofloop agents list",
+  "proofloop:providers": "npx proofloop providers setup all",
+  "proofloop:codex-loop": "npx proofloop codex-loop --dry-run",
 };
 
 export type UiContract = {
@@ -184,6 +187,8 @@ function buildAgentDocBlock(agent: ProofloopAgentKind): string {
     "- `npx proofloop manifest --dense` prints compact repo status, proof gates, workflows, and UI contracts.",
     "- `npx proofloop ui contract --dense` lists stable selectors before browser work.",
     "- `npx proofloop target --write-runner-plan` writes target plan JSON and `.proofloop/reports/latest.md`.",
+    "- `npx proofloop agents setup codex` or `npx proofloop agents setup claude-code` installs local hook enforcement for those hosts.",
+    "- `npx proofloop providers setup all` writes live-provider setup receipts without treating missing credentials as success.",
     "- Read `docs/agent-os/README.md` for the ProofLoop Agent OS doctrine pack when present.",
     "",
     "Loop contract:",
@@ -193,6 +198,7 @@ function buildAgentDocBlock(agent: ProofloopAgentKind): string {
     "- `npx proofloop report latest` summarizes the latest gate receipt.",
     "- `.proofloop/reports/latest.md` is the dated context page to hand to another coding agent.",
     "- `npx proofloop charts latest` writes local proof charts from gate receipts.",
+    "- `npx proofloop codex-loop --dry-run` turns a failed gate into a Codex repair prompt; omit `--dry-run` only when you want it to relaunch the local Codex CLI.",
     "",
     "Guardrails:",
     "- Fix the product or tests; do not weaken `proofloop.config.json`, `.proofloop/`, or `.github/workflows/` to get green.",
@@ -284,6 +290,9 @@ export function buildProofloopProjectManifest(root: string): ProofloopProjectMan
       resume: "npx proofloop resume --dense",
       report: "npx proofloop report latest",
       charts: "npx proofloop charts latest",
+      agents: "npx proofloop agents list",
+      codexLoop: "npx proofloop codex-loop --dry-run",
+      providers: "npx proofloop providers setup all",
       ui: "npx proofloop ui contract --dense",
       mcp: "npx proofloop mcp",
     },

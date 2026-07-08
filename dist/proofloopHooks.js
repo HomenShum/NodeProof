@@ -4,6 +4,7 @@ exports.GUARDED_CONTENT_PATH_PREFIXES = exports.DEFAULT_GATE_COMMAND = exports.D
 exports.installProofloopHooks = installProofloopHooks;
 exports.buildHooksConfig = buildHooksConfig;
 exports.mergeHookEntries = mergeHookEntries;
+exports.mergeCodexHookEntries = mergeCodexHookEntries;
 exports.uninstallProofloopHooks = uninstallProofloopHooks;
 exports.removeOurHookEntries = removeOurHookEntries;
 exports.proofloopHooksStatus = proofloopHooksStatus;
@@ -27,7 +28,7 @@ exports.formatProofloopHooksStatus = formatProofloopHooksStatus;
  *     which reads the persisted .proofloop/gate-state.json without re-running.
  *     "check-only" mode reads that same gate-state.json directly.
  *
- * v0 supports one worker: Claude Code (`--worker claude-code`).
+ * v0 supports Claude Code and Codex hook hosts.
  */
 const node_fs_1 = require("node:fs");
 const node_path_1 = require("node:path");
@@ -66,10 +67,7 @@ exports.GUARDED_CONTENT_PATH_PREFIXES = [
 // ---------------------------------------------------------------------------
 // install
 function installProofloopHooks(options = {}) {
-    const worker = options.worker ?? "claude-code";
-    if (worker !== "claude-code") {
-        throw new Error(`Unsupported worker: ${worker}. v0 supports only --worker claude-code.`);
-    }
+    const worker = parseHookWorker(options.worker ?? "claude-code");
     const root = (0, node_path_1.resolve)(options.root ?? process.cwd());
     const hooksDir = (0, node_path_1.join)(root, ".proofloop", "hooks");
     (0, node_fs_1.mkdirSync)(hooksDir, { recursive: true });
@@ -85,9 +83,11 @@ function installProofloopHooks(options = {}) {
         postToolUseLogPath = (0, node_path_1.join)(hooksDir, "posttooluse-log.mjs");
         (0, node_fs_1.writeFileSync)(postToolUseLogPath, postToolUseLogScript(config), "utf8");
     }
-    const settingsPath = (0, node_path_1.join)(root, ".claude", options.local ? "settings.local.json" : "settings.json");
+    const settingsPath = hookSettingsPath(root, worker, options.local === true);
     const settings = readSettingsForMerge(settingsPath);
-    const merged = mergeHookEntries(settings, { toolUseLog: config.toolUseLog });
+    const merged = worker === "codex"
+        ? mergeCodexHookEntries(settings, { toolUseLog: config.toolUseLog })
+        : mergeHookEntries(settings, { toolUseLog: config.toolUseLog });
     (0, node_fs_1.mkdirSync)((0, node_path_1.dirname)(settingsPath), { recursive: true });
     (0, node_fs_1.writeFileSync)(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, "utf8");
     return {
@@ -128,7 +128,7 @@ function buildHooksConfig(options = {}) {
     const gateCommand = gateMode === "command" ? explicitCommand ?? exports.DEFAULT_GATE_COMMAND : null;
     return {
         schema: "proofloop-hooks-v1",
-        worker: "claude-code",
+        worker: parseHookWorker(options.worker ?? "claude-code"),
         generatedAt: (options.now?.() ?? new Date()).toISOString(),
         gateMode,
         gateCommand,
@@ -195,14 +195,37 @@ function mergeHookEntries(settings, options = {}) {
     }
     return { addedStop, addedPreToolUse, addedPostToolUseLog };
 }
+/**
+ * Codex hook configuration uses a flat hooks array. The command scripts are
+ * the same self-contained Node scripts used by Claude Code: they consume stdin
+ * JSON and keep Proof Loop's Stop/PreToolUse/PostToolUse semantics host-neutral.
+ */
+function mergeCodexHookEntries(settings, options = {}) {
+    if (settings.hooks !== undefined && !Array.isArray(settings.hooks)) {
+        throw new Error("Refusing to overwrite Codex hooks because .codex hooks must be a flat array.");
+    }
+    const hooks = asCodexHookArray(settings.hooks);
+    settings.hooks = hooks;
+    const add = (event, command, matcher) => {
+        if (hooks.some((entry) => entry?.event === event && entry?.command === command))
+            return false;
+        hooks.push({ event, ...(matcher ? { matcher } : {}), command });
+        return true;
+    };
+    const addedStop = add("Stop", exports.STOP_GATE_COMMAND);
+    const addedPreToolUse = add("PreToolUse", exports.PRETOOLUSE_GUARD_COMMAND, exports.PRETOOLUSE_MATCHER);
+    const addedPostToolUseLog = options.toolUseLog === false
+        ? false
+        : add("PostToolUse", exports.POSTTOOLUSE_LOG_COMMAND, exports.POSTTOOLUSE_LOG_MATCHER);
+    return { addedStop, addedPreToolUse, addedPostToolUseLog };
+}
 // ---------------------------------------------------------------------------
 // uninstall
 function uninstallProofloopHooks(options = {}) {
     const root = (0, node_path_1.resolve)(options.root ?? process.cwd());
     const cleanedSettingsPaths = [];
     let removedEntries = 0;
-    for (const fileName of ["settings.json", "settings.local.json"]) {
-        const settingsPath = (0, node_path_1.join)(root, ".claude", fileName);
+    for (const settingsPath of hookSettingsCandidatePaths(root)) {
         const settings = readJsonRecord(settingsPath);
         if (!settings)
             continue;
@@ -224,8 +247,17 @@ function uninstallProofloopHooks(options = {}) {
 /** Remove ONLY entries whose command carries our marker prefix. */
 function removeOurHookEntries(settings) {
     const hooks = asRecord(settings.hooks);
-    if (!hooks)
-        return 0;
+    if (!hooks) {
+        const codexHooks = Array.isArray(settings.hooks) ? settings.hooks : undefined;
+        if (!codexHooks)
+            return 0;
+        const kept = codexHooks.filter((entry) => {
+            const command = entry?.command;
+            return !(typeof command === "string" && command.startsWith(exports.PROOFLOOP_HOOK_COMMAND_PREFIX));
+        });
+        settings.hooks = kept;
+        return codexHooks.length - kept.length;
+    }
     let removed = 0;
     for (const eventName of Object.keys(hooks)) {
         const groups = hooks[eventName];
@@ -271,16 +303,17 @@ function proofloopHooksStatus(options = {}) {
     const hooksDir = (0, node_path_1.join)(root, ".proofloop", "hooks");
     const configPath = (0, node_path_1.join)(hooksDir, "config.json");
     const config = readJsonRecord(configPath);
-    const settings = ["settings.json", "settings.local.json"].map((fileName) => {
-        const path = (0, node_path_1.join)(root, ".claude", fileName);
+    const settings = hookSettingsCandidatePaths(root).map((path) => {
         const parsed = readJsonRecord(path);
+        const codex = path.replace(/\\/g, "/").includes("/.codex/");
         const hooks = parsed ? asRecord(parsed.hooks) : undefined;
+        const codexHooks = parsed ? asCodexHookArray(parsed.hooks) : [];
         return {
             path,
             exists: parsed !== undefined,
-            stopHookInstalled: hooks ? groupsContainCommand(asGroupArray(hooks.Stop), exports.STOP_GATE_COMMAND) : false,
-            preToolUseHookInstalled: hooks ? groupsContainCommand(asGroupArray(hooks.PreToolUse), exports.PRETOOLUSE_GUARD_COMMAND) : false,
-            postToolUseLogInstalled: hooks ? groupsContainCommand(asGroupArray(hooks.PostToolUse), exports.POSTTOOLUSE_LOG_COMMAND) : false,
+            stopHookInstalled: codex ? codexHooksContainCommand(codexHooks, "Stop", exports.STOP_GATE_COMMAND) : hooks ? groupsContainCommand(asGroupArray(hooks.Stop), exports.STOP_GATE_COMMAND) : false,
+            preToolUseHookInstalled: codex ? codexHooksContainCommand(codexHooks, "PreToolUse", exports.PRETOOLUSE_GUARD_COMMAND) : hooks ? groupsContainCommand(asGroupArray(hooks.PreToolUse), exports.PRETOOLUSE_GUARD_COMMAND) : false,
+            postToolUseLogInstalled: codex ? codexHooksContainCommand(codexHooks, "PostToolUse", exports.POSTTOOLUSE_LOG_COMMAND) : hooks ? groupsContainCommand(asGroupArray(hooks.PostToolUse), exports.POSTTOOLUSE_LOG_COMMAND) : false,
         };
     });
     const sessionBlockCounts = {};
@@ -839,10 +872,31 @@ function readJsonRecord(path) {
         return undefined;
     }
 }
+function parseHookWorker(value) {
+    if (value === "claude-code" || value === "codex")
+        return value;
+    throw new Error(`Unsupported worker: ${value}. Expected --worker claude-code or --worker codex.`);
+}
+function hookSettingsPath(root, worker, local) {
+    if (worker === "codex")
+        return (0, node_path_1.join)(root, ".codex", local ? "hooks.local.json" : "hooks.json");
+    return (0, node_path_1.join)(root, ".claude", local ? "settings.local.json" : "settings.json");
+}
+function hookSettingsCandidatePaths(root) {
+    return [
+        hookSettingsPath(root, "claude-code", false),
+        hookSettingsPath(root, "claude-code", true),
+        hookSettingsPath(root, "codex", false),
+        hookSettingsPath(root, "codex", true),
+    ];
+}
 function asRecord(value) {
     return value && typeof value === "object" && !Array.isArray(value) ? value : undefined;
 }
 function asGroupArray(value) {
+    return Array.isArray(value) ? value : [];
+}
+function asCodexHookArray(value) {
     return Array.isArray(value) ? value : [];
 }
 function groupsContainCommand(groups, command) {
@@ -850,4 +904,7 @@ function groupsContainCommand(groups, command) {
         const entries = Array.isArray(group?.hooks) ? group.hooks : [];
         return entries.some((entry) => entry?.command === command);
     });
+}
+function codexHooksContainCommand(hooks, event, command) {
+    return hooks.some((entry) => entry?.event === event && entry?.command === command);
 }
