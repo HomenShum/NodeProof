@@ -1,11 +1,13 @@
-# Proof Loop
+# NodeProof
 
-**Bring any coding agent. Proof Loop makes it prove the app works.**
+**Bring any coding agent. NodeProof makes it prove the app works.**
 
-Coding agents write code and say "done." Proof Loop is the supervisor that decides whether done is
+Coding agents write code and say "done." NodeProof is the supervisor that decides whether done is
 true: it runs a gate against your app, refuses false completion, captures which tools your agent
 actually called, and keeps proof state the agent cannot quietly weaken. One prompt starts the loop;
 the gate decides when it is actually done.
+
+The CLI remains `npx proofloop` for package compatibility.
 
 Zero runtime dependencies. Node >= 20. Works on any repo.
 
