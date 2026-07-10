@@ -413,6 +413,7 @@ describe("ProofLoop/Solo interop", () => {
   it("requires the correct independent receipt and boundary for team and certification claims", () => {
     const root = tempRepo();
     const keys = trustKeys();
+    vi.stubEnv("GITHUB_REPOSITORY", undefined);
 
     const team = envelope(root);
     team.claim.tier = "team_ready";
@@ -481,6 +482,7 @@ describe("ProofLoop/Solo interop", () => {
   it("rejects forged promotion JSON and a valid signature from the wrong issuer", () => {
     const root = tempRepo();
     const keys = trustKeys();
+    vi.stubEnv("GITHUB_REPOSITORY", undefined);
     vi.stubEnv("PROOFLOOP_TRUST_PUBLIC_KEY_PEM", keys.publicKeyPem);
     vi.stubEnv("PROOFLOOP_TRUST_KEY_ID", "test-trust-key");
 
