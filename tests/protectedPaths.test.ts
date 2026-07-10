@@ -115,6 +115,15 @@ describe("protected-path defaults (the goalpost layer)", () => {
     expect(guard(root, "Write", { file_path: ".github/PULL_REQUEST_TEMPLATE.md", content: "hi" }).status).toBe(0);
   });
 
+  it("INTEROP: blocks direct writes to Solo promotion state but leaves working receipts editable", () => {
+    const root = tempRoot();
+    installProofloopHooks({ root });
+
+    expect(guard(root, "Write", { file_path: ".solo/proof-verdict.json", content: '{"verdict":"pass"}' }).status).toBe(2);
+    expect(guard(root, "Write", { file_path: ".solo/proofloop-interop.json", content: "{}" }).status).toBe(2);
+    expect(guard(root, "Write", { file_path: ".solo/receipts/R/capability-spec.json", content: "{}" }).status).toBe(0);
+  });
+
   it("USER ADDITIONS: proofloop.config.json protectedPaths extends the guard, and defaults are not removable", () => {
     const root = tempRoot();
     writeJson(join(root, "proofloop.config.json"), {

@@ -1,0 +1,211 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nodeproof.dev/schemas/proofloop-solo-interop-v1.schema.json",
+  "title": "ProofLoop Solo Founder Interop Envelope v1",
+  "description": "Advisory evidence handoff from Solo Founder Agent Builder to NodeProof. NodeProof derives the authoritative verdict.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schemaVersion",
+    "contract",
+    "programId",
+    "goal",
+    "repository",
+    "actor",
+    "claim",
+    "receipts",
+    "budget",
+    "sourceVerdict",
+    "timestamps"
+  ],
+  "properties": {
+    "schema": { "const": "proofloop-solo-interop-v1" },
+    "schemaVersion": { "const": 1 },
+    "contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner", "schemaId", "schemaDigest"],
+      "properties": {
+        "owner": { "const": "NodeProof" },
+        "schemaId": { "const": "proofloop-solo-interop-v1" },
+        "schemaDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "programId": { "$ref": "#/$defs/id" },
+    "goal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["goalId", "loopId", "text", "currentMilestone", "status"],
+      "properties": {
+        "goalId": { "$ref": "#/$defs/id" },
+        "parentGoalId": { "$ref": "#/$defs/id" },
+        "loopId": { "$ref": "#/$defs/id" },
+        "text": { "type": "string", "minLength": 1, "maxLength": 10000 },
+        "currentMilestone": { "enum": ["R", "A", "L", "P", "H"] },
+        "status": { "enum": ["not_started", "running", "blocked", "completed", "failed"] },
+        "resumeCommand": { "type": "string", "minLength": 1, "maxLength": 4000 }
+      }
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repoUrl", "baseCommit", "candidateCommit", "branch", "dirty"],
+      "properties": {
+        "repoUrl": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "baseCommit": { "$ref": "#/$defs/gitSha" },
+        "candidateCommit": { "$ref": "#/$defs/gitSha" },
+        "branch": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "dirty": { "type": "boolean" },
+        "worktreeId": { "$ref": "#/$defs/id" }
+      }
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actorId", "role", "agentHost"],
+      "properties": {
+        "actorId": { "$ref": "#/$defs/id" },
+        "role": { "enum": ["owner", "contributor", "reviewer", "verifier", "agent"] },
+        "agentHost": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "sessionId": { "$ref": "#/$defs/id" }
+      }
+    },
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "tier", "boundary"],
+      "properties": {
+        "text": { "type": "string", "minLength": 1, "maxLength": 10000 },
+        "tier": { "enum": ["local_ready", "team_ready", "certification_ready"] },
+        "boundary": { "enum": ["product_path", "proxy", "official"] }
+      }
+    },
+    "receipts": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": { "$ref": "#/$defs/receipt" }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maxUsd", "spentUsd"],
+      "properties": {
+        "maxUsd": { "type": "number", "minimum": 0 },
+        "spentUsd": { "type": "number", "minimum": 0 },
+        "maxRuntimeMs": { "type": "integer", "minimum": 0 },
+        "maxModelCalls": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "sourceVerdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authority", "status"],
+      "properties": {
+        "authority": { "const": "advisory" },
+        "status": { "enum": ["advisory_pass", "advisory_fail", "blocked", "incomplete", "unknown"] },
+        "path": { "$ref": "#/$defs/relativePath" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "reason": { "type": "string", "maxLength": 4000 }
+      }
+    },
+    "blockers": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "message", "nextAction"],
+        "properties": {
+          "kind": { "enum": ["approval", "secret", "install", "budget", "missing_receipt", "verification", "conflict"] },
+          "message": { "type": "string", "minLength": 1, "maxLength": 4000 },
+          "nextAction": { "type": "string", "minLength": 1, "maxLength": 4000 }
+        }
+      }
+    },
+    "evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "candidateProducedAt": { "$ref": "#/$defs/dateTime" },
+        "evaluatorAccessedAt": { "$ref": "#/$defs/dateTime" },
+        "scorer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "name", "version"],
+          "properties": {
+            "kind": { "enum": ["deterministic", "official", "equivalent_judge"] },
+            "name": { "type": "string", "minLength": 1, "maxLength": 256 },
+            "version": { "type": "string", "minLength": 1, "maxLength": 256 },
+            "digest": { "$ref": "#/$defs/sha256" }
+          }
+        }
+      }
+    },
+    "handoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "tasks"],
+      "properties": {
+        "mode": { "const": "advisory" },
+        "tasks": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "milestone", "command", "estimatedCostUsd"],
+            "properties": {
+              "id": { "$ref": "#/$defs/id" },
+              "milestone": { "enum": ["R", "A", "L", "P", "H"] },
+              "command": { "type": "string", "minLength": 1, "maxLength": 4000 },
+              "cwd": { "$ref": "#/$defs/relativePath" },
+              "estimatedCostUsd": { "type": "number", "minimum": 0 },
+              "timeoutMs": { "type": "integer", "minimum": 1 },
+              "dependsOn": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+              "requiredReceiptIds": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/id" } }
+            }
+          }
+        }
+      }
+    },
+    "timestamps": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["createdAt", "exportedAt"],
+      "properties": {
+        "createdAt": { "$ref": "#/$defs/dateTime" },
+        "exportedAt": { "$ref": "#/$defs/dateTime" }
+      }
+    },
+    "extensions": { "type": "object", "additionalProperties": true }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$" },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "gitSha": { "type": "string", "pattern": "^[a-f0-9]{40,64}$" },
+    "dateTime": { "type": "string", "format": "date-time" },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^(?![A-Za-z]:)(?![/\\\\])(?!.*(?:^|[/\\\\])\\.\\.(?:[/\\\\]|$)).+$"
+    },
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "path", "sha256", "producer", "createdAt", "visibility", "required"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "path": { "$ref": "#/$defs/relativePath" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "producer": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "createdAt": { "$ref": "#/$defs/dateTime" },
+        "visibility": { "enum": ["private", "team", "public"] },
+        "required": { "type": "boolean" },
+        "verifier": { "type": "string", "minLength": 1, "maxLength": 256 }
+      }
+    }
+  }
+}

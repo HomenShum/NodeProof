@@ -45,5 +45,8 @@ __exportStar(require("./agentAdapters"), exports);
 __exportStar(require("./agentLoop"), exports);
 __exportStar(require("./codexRelaunch"), exports);
 __exportStar(require("./providerSetup"), exports);
+__exportStar(require("./soloInterop"), exports);
+__exportStar(require("./soloSetup"), exports);
+__exportStar(require("./soloTrust"), exports);
 var cli_1 = require("./cli");
 Object.defineProperty(exports, "runCli", { enumerable: true, get: function () { return cli_1.runCli; } });

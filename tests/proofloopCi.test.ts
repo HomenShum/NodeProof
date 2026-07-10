@@ -11,7 +11,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { installProofloopGithubCi } from "../src/proofloopCi";
+import { installProofloopGithubCi, PROOFLOOP_CI_VERSION_TOKEN } from "../src/proofloopCi";
 
 const TEMPLATE_DIR = join(process.cwd(), "templates");
 
@@ -32,18 +32,24 @@ function tempRoot(): string {
 describe("proofloop ci install github", () => {
   it("writes the workflow into the target repo and references the package gate command", () => {
     const root = tempRoot();
-    const result = installProofloopGithubCi({ root, templateDir: TEMPLATE_DIR });
+    const result = installProofloopGithubCi({ root, templateDir: TEMPLATE_DIR, packageVersion: "9.8.7" });
 
     expect(result.workflowPath).toBe(join(root, ".github", "workflows", "proofloop-gate.yml"));
     const workflow = readFileSync(result.workflowPath, "utf8");
-    // The package gate contract: `npx proofloop gate`, node 20.
-    expect(workflow).toContain("npx proofloop gate");
+    expect(workflow).toContain("npx --yes proofloop@9.8.7 gate");
+    expect(workflow).toContain("solo ingest --file .solo/proofloop-interop.json");
+    expect(workflow).toContain("solo attest");
+    expect(workflow).toContain("secrets.PROOFLOOP_TRUST_PRIVATE_KEY_PEM");
+    expect(workflow).toContain("${{ vars.PROOFLOOP_TRUST_KEY_ID }}");
+    expect(workflow).not.toContain("\\${");
+    expect(workflow).toContain("actions/upload-artifact@v4");
+    expect(workflow).not.toContain(PROOFLOOP_CI_VERSION_TOKEN);
     expect(workflow).toContain("actions/setup-node@v4");
     expect(workflow).toContain("node-version: 20");
 
     // Idempotent: reinstall overwrites cleanly.
-    const again = installProofloopGithubCi({ root, templateDir: TEMPLATE_DIR });
-    expect(readFileSync(again.workflowPath, "utf8")).toContain("npx proofloop gate");
+    const again = installProofloopGithubCi({ root, templateDir: TEMPLATE_DIR, packageVersion: "9.8.7" });
+    expect(readFileSync(again.workflowPath, "utf8")).toContain("npx --yes proofloop@9.8.7 gate");
   });
 
   it("reports a missing template clearly and never writes a partial workflow", () => {

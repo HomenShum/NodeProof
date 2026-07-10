@@ -19,6 +19,7 @@ import { dirname, join, resolve } from "node:path";
 
 export const PROOFLOOP_CI_TEMPLATE_FILENAME = "github-proofloop-gate.yml";
 export const PROOFLOOP_CI_WORKFLOW_RELPATH = ".github/workflows/proofloop-gate.yml";
+export const PROOFLOOP_CI_VERSION_TOKEN = "__PROOFLOOP_VERSION__";
 
 export type ProofloopCiInstallOptions = {
   /** Target repo root the workflow is written into. Default: cwd. */
@@ -28,12 +29,15 @@ export type ProofloopCiInstallOptions = {
    * `templates/` dir, located relative to this compiled module.
    */
   templateDir?: string;
+  /** Exact CLI version rendered into the workflow. Defaults to this package version. */
+  packageVersion?: string;
 };
 
 export type ProofloopCiInstallResult = {
   root: string;
   templatePath: string;
   workflowPath: string;
+  packageVersion: string;
 };
 
 /**
@@ -45,6 +49,15 @@ export function defaultTemplateDir(): string {
   return join(__dirname, "..", "templates");
 }
 
+export function installedPackageVersion(): string {
+  const packagePath = join(__dirname, "..", "package.json");
+  const parsed = JSON.parse(readFileSync(packagePath, "utf8")) as { version?: unknown };
+  if (typeof parsed.version !== "string" || !/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(parsed.version)) {
+    throw new Error(`Proof Loop package version is invalid in ${packagePath}.`);
+  }
+  return parsed.version;
+}
+
 export function installProofloopGithubCi(options: ProofloopCiInstallOptions = {}): ProofloopCiInstallResult {
   const root = resolve(options.root ?? process.cwd());
   const templateDir = resolve(options.templateDir ?? defaultTemplateDir());
@@ -53,10 +66,18 @@ export function installProofloopGithubCi(options: ProofloopCiInstallOptions = {}
     throw new Error(`Proof Loop CI template not found at ${templatePath}.`);
   }
   const template = readFileSync(templatePath, "utf8");
+  const packageVersion = options.packageVersion ?? installedPackageVersion();
+  if (!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(packageVersion)) {
+    throw new Error(`Proof Loop CI package version is invalid: ${packageVersion}.`);
+  }
+  if (!template.includes(PROOFLOOP_CI_VERSION_TOKEN)) {
+    throw new Error(`Proof Loop CI template is missing ${PROOFLOOP_CI_VERSION_TOKEN}.`);
+  }
+  const rendered = template.replaceAll(PROOFLOOP_CI_VERSION_TOKEN, packageVersion);
 
   const workflowPath = join(root, ...PROOFLOOP_CI_WORKFLOW_RELPATH.split("/"));
   mkdirSync(dirname(workflowPath), { recursive: true });
-  writeFileSync(workflowPath, template, "utf8");
+  writeFileSync(workflowPath, rendered, "utf8");
 
-  return { root, templatePath, workflowPath };
+  return { root, templatePath, workflowPath, packageVersion };
 }

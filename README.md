@@ -22,6 +22,20 @@ npx proofloop agents setup claude-code --local
 npx proofloop codex-loop --dry-run
 ```
 
+Solo Founder Agent Builder can supply the self-directing RALPH workflow while NodeProof remains the
+independent gate:
+
+```bash
+npx proofloop solo setup --source ../solo-founder-agent-builder --agent both --install-deps --verify
+npm run sfn -- proofloop export --project . --out .solo/proofloop-interop.json --program-id my-program --goal-id my-goal --actor me --role owner --agent-host codex --tier local_ready --boundary product_path
+npx proofloop solo ingest --file .solo/proofloop-interop.json --write-runner-plan
+npx proofloop solo gate
+```
+
+The Solo verdict is advisory. Team and certification claims require independent receipts. See
+`docs/solo-founder-interop.md` for the authority boundary, two-user flow, evidence-only CI commit,
+signed artifact re-export, and public-repository privacy rules.
+
 Provider setup receipts cover Butterbase, Neo4j, RocketRide, Daytona, Cognee, and Nebius without treating missing credentials as success:
 
 ```bash
@@ -344,6 +358,9 @@ script. With neither, it reports `no_gate` with exit code 2. An unconfigured gat
 | `proofloop report latest [--json]` | Summarize the latest gate receipt. |
 | `proofloop charts latest` | Write local JSON/SVG proof charts under `.proofloop/charts/`. |
 | `proofloop receipt verify --file <path>` | Verify app-produced proof receipts such as NodeAgent ingestion receipts. |
+| `proofloop solo setup --source <repo> --agent both` | Install one canonical Solo skill for Codex and Claude Code and compose one Stop gate. |
+| `proofloop solo ingest --file <envelope> --write-runner-plan` | Validate Solo evidence and optionally compile advisory tasks without executing them. |
+| `proofloop solo status\|resume\|gate` | Inspect or enforce the NodeProof-derived Solo interop state. |
 | `proofloop runner run --plan <file> --budget-usd 100` | Run an append-only, budgeted task plan under `.proofloop/runner/runs/<runId>/`. |
 | `proofloop runner resume --run-id latest --clear-stale-lock` | Resume a runner after a crash; stale `running` tasks are requeued after explicit stale-lock clearance. |
 | `proofloop runner status --run-id latest [--json]` | Inspect durable runner state and ledger paths. |

@@ -28,4 +28,7 @@ export * from "./agentAdapters";
 export * from "./agentLoop";
 export * from "./codexRelaunch";
 export * from "./providerSetup";
+export * from "./soloInterop";
+export * from "./soloSetup";
+export * from "./soloTrust";
 export { runCli } from "./cli";

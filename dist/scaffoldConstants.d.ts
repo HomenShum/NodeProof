@@ -52,6 +52,9 @@ export declare const DEFAULT_IMMUTABLE_FILES: readonly string[];
  *   - ".github/workflows/"    : the CI backstop that re-verifies the gate
  *     (includes the proofloop-gate.yml written by `proofloop ci install
  *     github`).
+ *   - selected ".solo/" files : the advisory handoff and source proof verdict
+ *     consumed by NodeProof. Working RALPH receipts remain writable; only the
+ *     promotion boundary is protected from direct agent file tools.
  * The narrower entries below are subsumed by the prefixes above; they are kept
  * explicitly so each carries its own rationale (and so tooling/tests can
  * reference them individually). Users ADD paths via proofloop.config.json

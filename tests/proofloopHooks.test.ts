@@ -575,6 +575,36 @@ describe("posttooluse-log.mjs (expected-tool-use capture)", () => {
     expect(garbage.status).toBe(0);
   });
 
+  it("bridges normalized tool events into an active Solo loop without making that journal authoritative", () => {
+    const root = tempRoot();
+    installProofloopHooks({ root });
+    writeJson(join(root, ".solo", "loop-state.json"), { loopId: "loop_team", currentMilestone: "L" });
+
+    expect(logEvent(root, {
+      session_id: "sess-team",
+      agent_host: "codex",
+      tool_name: "Write",
+      tool_input: { file_path: "src/app.ts", apiKey: "secret" },
+    }).status).toBe(0);
+
+    const events = readFileSync(join(root, ".solo", "events.jsonl"), "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      schemaVersion: 1,
+      event: "tool.post",
+      agentHost: "codex",
+      source: "nodeproof-posttooluse",
+      loopId: "loop_team",
+      milestone: "L",
+      status: "ok",
+      toolName: "Write",
+    });
+    expect(events[0].payload.params.apiKey).toBe("[redacted]");
+  });
+
   it("--no-tooluse-log omits the script and the settings entry; default install adds them back", () => {
     const root = tempRoot();
     const result = installProofloopHooks({ root, toolUseLog: false });

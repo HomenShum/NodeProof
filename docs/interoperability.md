@@ -2,6 +2,12 @@
 
 Proof Loop stays the certification source of truth: deterministic gate receipts, tool-use logs, and runner receipts decide pass/fail. External orchestration and observability systems can mirror or launch work, but they do not replace Proof Loop receipts.
 
+## Solo Founder Agent Builder
+
+Solo Founder supplies the RALPH methodology and durable .solo/ work journal. NodeProof imports its evidence through the versioned proofloop-solo-interop-v1 envelope and derives the authoritative gate without accepting Solo's pass claim.
+
+Use npx proofloop solo setup, npm run sfn -- proofloop export, and npx proofloop solo ingest. The complete install, claim-tier, multi-user, and enforcement contract is in [solo-founder-interop.md](solo-founder-interop.md).
+
 ## LangChain and LangSmith
 
 Use LangChain as an adapter boundary, not as the proof harness. A LangChain agent may call the product or tooling under test, but Proof Loop should still run the final `npx proofloop gate` or `npx proofloop runner run --plan ...` command and record the result under `.proofloop/`.

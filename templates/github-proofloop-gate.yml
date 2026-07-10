@@ -7,6 +7,13 @@
 # glue needed.
 name: proofloop-gate
 
+permissions:
+  contents: read
+
+concurrency:
+  group: proofloop-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [main]
@@ -17,10 +24,57 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Install dependencies
-        run: npm ci || npm install
+      - name: Install project dependencies
+        shell: bash
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          elif [ -f package.json ]; then
+            npm install --ignore-scripts
+          else
+            echo "No package.json; skipping project dependency install."
+          fi
       - name: Run the Proof Loop gate
-        run: npx proofloop gate
+        run: npx --yes proofloop@__PROOFLOOP_VERSION__ gate
+      - name: Verify Solo Founder interop envelope
+        shell: bash
+        env:
+          PROOFLOOP_TRUST_PUBLIC_KEY_PEM: ${{ vars.PROOFLOOP_TRUST_PUBLIC_KEY_PEM }}
+          PROOFLOOP_TRUST_KEY_ID: ${{ vars.PROOFLOOP_TRUST_KEY_ID }}
+        run: |
+          if [ -f .solo/proofloop-interop.json ]; then
+            npx --yes proofloop@__PROOFLOOP_VERSION__ solo ingest --file .solo/proofloop-interop.json --json
+            npx --yes proofloop@__PROOFLOOP_VERSION__ solo gate --json
+          else
+            echo "No .solo/proofloop-interop.json present; base Proof Loop gate remains authoritative."
+          fi
+      - name: Sign independent Solo trust receipt
+        shell: bash
+        env:
+          PROOFLOOP_TRUST_PRIVATE_KEY_PEM: ${{ secrets.PROOFLOOP_TRUST_PRIVATE_KEY_PEM }}
+          PROOFLOOP_TRUST_KEY_ID: ${{ vars.PROOFLOOP_TRUST_KEY_ID }}
+        run: |
+          if [ -f .solo/proofloop-interop.json ] && [ -n "${PROOFLOOP_TRUST_PRIVATE_KEY_PEM:-}" ]; then
+            npx --yes proofloop@__PROOFLOOP_VERSION__ solo attest \
+              --file .solo/proofloop-interop.json \
+              --gate-receipt .proofloop/interop/solo/latest-receipt.json \
+              --out .proofloop/interop/solo/nodeproof-ci.json \
+              --key-id "${PROOFLOOP_TRUST_KEY_ID:-proofloop-ci}"
+          else
+            echo "No signing key or Solo envelope; no team-ready attestation was issued."
+          fi
+      - name: Upload proof receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: proofloop-receipts-${{ github.run_id }}
+          if-no-files-found: ignore
+          path: |
+            .proofloop/gate-state.json
+            .proofloop/interop/solo/**
+            .solo/proofloop-interop.json

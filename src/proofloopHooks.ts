@@ -910,13 +910,16 @@ function postToolUseLogScript(config: ProofloopHooksConfig): string {
  * bypass: Bash-issued writes are not intercepted; CI re-verification is the
  * backstop. This is LOCAL capture, not server-side attestation.
  */
-import { appendFileSync, mkdirSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(SCRIPT_DIR, "..", "..");
 const LOG_PATH = join(REPO_ROOT, ...${JSON.stringify(config.toolUseLogPath.split("/"))});
+const SOLO_STATE_PATH = join(REPO_ROOT, ".solo", "loop-state.json");
+const SOLO_EVENTS_PATH = join(REPO_ROOT, ".solo", "events.jsonl");
 const REDACT_KEY_RE = /key|token|secret|password|authorization|bearer|credential/i;
 
 /**
@@ -934,6 +937,32 @@ function redact(value) {
     return out;
   }
   return value;
+}
+
+function appendSoloEvent(input, record) {
+  if (!existsSync(SOLO_STATE_PATH)) return;
+  try {
+    const loop = JSON.parse(readFileSync(SOLO_STATE_PATH, "utf8"));
+    const response = input && typeof input.tool_response === "object" ? input.tool_response : null;
+    const failed = Boolean(input?.error || response?.is_error || response?.error);
+    const event = {
+      schemaVersion: 1,
+      id: "evt_" + randomUUID().replace(/-/g, ""),
+      ts: record.ts,
+      event: "tool.post",
+      agentHost: typeof input?.agent_host === "string" && input.agent_host ? input.agent_host : "proofloop-hook",
+      source: "nodeproof-posttooluse",
+      ...(typeof loop?.loopId === "string" ? { loopId: loop.loopId } : {}),
+      ...(typeof loop?.currentMilestone === "string" ? { milestone: loop.currentMilestone } : {}),
+      status: failed ? "error" : "ok",
+      toolName: record.tool,
+      payload: { sessionId: record.sessionId, params: record.params },
+    };
+    mkdirSync(dirname(SOLO_EVENTS_PATH), { recursive: true });
+    appendFileSync(SOLO_EVENTS_PATH, JSON.stringify(event) + "\\n", "utf8");
+  } catch (error) {
+    console.error("proofloop solo-event-bridge: could not append to " + SOLO_EVENTS_PATH + " (" + (error?.message ?? error) + ") -- tool call unaffected.");
+  }
 }
 
 async function readStdin() {
@@ -962,6 +991,7 @@ async function main() {
     mkdirSync(dirname(LOG_PATH), { recursive: true });
     // ONE line per record; JSON.stringify escapes any newline inside values.
     appendFileSync(LOG_PATH, JSON.stringify(record) + "\\n", "utf8");
+    appendSoloEvent(input, record);
   } catch (error) {
     console.error("proofloop tooluse-log: could not append to " + LOG_PATH + " (" + (error?.message ?? error) + ") -- tool call unaffected.");
   }

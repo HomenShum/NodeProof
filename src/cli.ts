@@ -10,6 +10,7 @@
  *   proofloop ci install github        write the GitHub Actions gate workflow
  *   proofloop prompt                   print the one-prompt kickoff
  *   proofloop target [--url <url>] [--write-runner-plan] [--write-browser-smoke]
+ *   proofloop solo ingest|status|gate|resume|attest|verify-attestation
  *   proofloop this-repo [--goal ...] [--write-runner-plan] [--run]
  *   proofloop maturity [--dense|--json|--write] [--target-level 5]
  *   proofloop productivity [--write] [--baseline-source benchmark] [--dev-hours 2] [--qa-hours 1]
@@ -21,7 +22,8 @@
  *
  * Exit codes are per-command (documented at each case). Zero runtime deps.
  */
-import { join, resolve } from "node:path";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { runInit } from "./init";
 import { runDoctor } from "./doctor";
 import { runGateCli } from "./gate";
@@ -89,6 +91,9 @@ import {
   parseProofloopProviderId,
   setupProofloopProviders,
 } from "./providerSetup";
+import { runSoloInteropCli } from "./soloInterop";
+import { createSoloTrustReceipt, readSoloTrustReceipt, verifySoloTrustReceipt } from "./soloTrust";
+import { setupSolo, type SoloSetupAgents } from "./soloSetup";
 
 type Flags = { positional: string[]; options: Record<string, string | boolean> };
 export const MCP_SERVER_RUNNING = -999;
@@ -153,6 +158,10 @@ function usage(): string {
     "  report latest [--json]     latest gate report",
     "  charts latest              write local JSON/SVG proof charts",
     "  receipt verify --file <path>   verify app-produced proof receipts",
+    "  solo setup --source <path> [--agent codex|claude-code|both] [--install-deps] [--verify]",
+    "  solo ingest|status|gate|resume   validate and inspect Solo interop evidence",
+    "  solo attest --file <envelope> --gate-receipt <receipt> --out <receipt> --key-id <id>",
+    "  solo verify-attestation --file <receipt> [--public-key-file <pem>] [--key-id <id>]",
     "  runner run|resume|status|report   durable append-only task runner with budget and resume",
     "  hosted intake|validate|dashboard|run   create or resume a hosted URL proof packet",
     "  target [--url <url>] [--write-runner-plan] [--write-browser-smoke]   recommend benchmark families and write target/context receipts",
@@ -244,6 +253,9 @@ export function runCli(argv: string[]): number | Promise<number> {
     case "receipt":
       return runReceiptCommand(positional[1], options, root);
 
+    case "solo":
+      return runSoloCommand(positional[1], options, root);
+
     case "runner":
       return runRunnerCommand(positional[1], options, root);
 
@@ -289,6 +301,160 @@ export function runCli(argv: string[]): number | Promise<number> {
       console.error(usage());
       return 2;
   }
+}
+
+function runSoloCommand(sub: string | undefined, options: Record<string, string | boolean>, root: string): number {
+  if (sub === "setup") return runSoloSetupCommand(options, root);
+  if (sub === "attest") return runSoloAttestCommand(options, root);
+  if (sub === "verify-attestation") return runSoloVerifyAttestationCommand(options, root);
+  return runSoloInteropCli({
+    root,
+    subcommand: sub,
+    ...(str(options.file) !== undefined ? { filePath: str(options.file)! } : {}),
+    writeRunnerPlan: options["write-runner-plan"] === true,
+    json: options.json === true,
+  });
+}
+
+function runSoloSetupCommand(options: Record<string, string | boolean>, root: string): number {
+  const sourceDir = str(options.source) ?? str(options["source-dir"]);
+  const agents = (str(options.agent) ?? "both") as SoloSetupAgents;
+  const result = setupSolo({
+    targetRoot: root,
+    ...(sourceDir ? { sourceDir: resolve(root, sourceDir) } : {}),
+    agents,
+    force: options.force === true,
+    installDependencies: options["install-deps"] === true,
+    verify: options.verify === true,
+  });
+
+  const hooks: Array<{ worker: "codex" | "claude-code"; settingsPath: string }> = [];
+  if (result.status === "ready" && options["no-hooks"] !== true) {
+    const workers: Array<"codex" | "claude-code"> = agents === "both" ? ["codex", "claude-code"] : [agents];
+    try {
+      for (const worker of workers) {
+        const installed = installProofloopHooks({
+          root,
+          worker,
+          local: options.local === true,
+          gateCommand: result.command,
+        });
+        hooks.push({ worker, settingsPath: installed.settingsPath });
+      }
+    } catch (error) {
+      console.error(`proofloop solo setup: hook installation failed: ${error instanceof Error ? error.message : String(error)}`);
+      return 1;
+    }
+  }
+
+  if (options.json === true) {
+    console.log(JSON.stringify({ ...result, hooks }, null, 2));
+  } else {
+    console.log(`proofloop solo setup: ${result.status} -> ${result.receiptPath}`);
+    for (const hook of hooks) console.log(`  ${hook.worker}: ${hook.settingsPath}`);
+    for (const command of result.nextCommands) console.log(`  next: ${command}`);
+  }
+  return result.status === "ready" ? 0 : 1;
+}
+
+function runSoloAttestCommand(options: Record<string, string | boolean>, root: string): number {
+  const file = str(options.file);
+  const gateReceipt = str(options["gate-receipt"]);
+  const out = str(options.out);
+  const keyId = str(options["key-id"]);
+  if (!file || !gateReceipt || !out || !keyId) {
+    console.error("proofloop solo attest: --file, --gate-receipt, --out, and --key-id are required.");
+    return 2;
+  }
+  const privateKeyPem = process.env.PROOFLOOP_TRUST_PRIVATE_KEY_PEM;
+  if (!privateKeyPem) {
+    console.error("proofloop solo attest: PROOFLOOP_TRUST_PRIVATE_KEY_PEM is required.");
+    return 2;
+  }
+  const outPath = resolve(root, out);
+  if (resolvesInsideSolo(root, outPath)) {
+    console.error("proofloop solo attest: refusing to write a trust receipt inside .solo.");
+    return 2;
+  }
+  try {
+    const receipt = createSoloTrustReceipt({
+      envelopePath: resolve(root, file),
+      gateReceiptPath: resolve(root, gateReceipt),
+      outPath,
+      privateKeyPem,
+      keyId,
+    });
+    if (options.json === true) {
+      console.log(JSON.stringify({ ok: true, outPath, receipt }, null, 2));
+    } else {
+      console.log(`proofloop solo attest: wrote ${outPath} keyId=${receipt.keyId} issuer=${receipt.payload.issuer.kind}`);
+    }
+    return 0;
+  } catch (error) {
+    console.error(`proofloop solo attest: ${error instanceof Error ? error.message : String(error)}`);
+    return 1;
+  }
+}
+
+function runSoloVerifyAttestationCommand(options: Record<string, string | boolean>, root: string): number {
+  const file = str(options.file);
+  if (!file) {
+    console.error("proofloop solo verify-attestation: --file <receipt> is required.");
+    return 2;
+  }
+  const publicKeyFile = str(options["public-key-file"]);
+  let publicKeyPem: string | undefined;
+  try {
+    publicKeyPem = publicKeyFile
+      ? readFileSync(resolve(root, publicKeyFile), "utf8")
+      : process.env.PROOFLOOP_TRUST_PUBLIC_KEY_PEM;
+  } catch (error) {
+    console.error(`proofloop solo verify-attestation: ${error instanceof Error ? error.message : String(error)}`);
+    return 2;
+  }
+  if (!publicKeyPem) {
+    console.error("proofloop solo verify-attestation: --public-key-file or PROOFLOOP_TRUST_PUBLIC_KEY_PEM is required.");
+    return 2;
+  }
+  try {
+    const receiptPath = resolve(root, file);
+    const result = verifySoloTrustReceipt(readSoloTrustReceipt(receiptPath), {
+      publicKeyPem,
+      ...(str(options["key-id"]) !== undefined ? { expectedKeyId: str(options["key-id"])! } : {}),
+      ...(str(options.candidate) !== undefined ? { expectedCandidateCommit: str(options.candidate)! } : {}),
+      ...(str(options.repository) !== undefined ? { expectedRepository: str(options.repository)! } : {}),
+    });
+    if (options.json === true) {
+      console.log(JSON.stringify({ ...result, receiptPath }, null, 2));
+    } else if (result.ok) {
+      console.log(`proofloop solo verify-attestation: passed ${receiptPath}`);
+    } else {
+      console.error(`proofloop solo verify-attestation: failed ${receiptPath}\n${result.errors.map((entry) => `- ${entry}`).join("\n")}`);
+    }
+    return result.ok ? 0 : 1;
+  } catch (error) {
+    console.error(`proofloop solo verify-attestation: ${error instanceof Error ? error.message : String(error)}`);
+    return 1;
+  }
+}
+
+function isPathWithin(rootInput: string, targetInput: string): boolean {
+  const path = relative(resolve(rootInput), resolve(targetInput));
+  return path === "" || (path !== ".." && !path.startsWith(`..${sep}`) && !isAbsolute(path));
+}
+
+function resolvesInsideSolo(root: string, target: string): boolean {
+  const soloPath = resolve(root, ".solo");
+  if (isPathWithin(soloPath, target)) return true;
+  if (!existsSync(soloPath)) return false;
+  let ancestor = resolve(target);
+  while (!existsSync(ancestor)) {
+    const parent = dirname(ancestor);
+    if (parent === ancestor) return false;
+    ancestor = parent;
+  }
+  const projectedTarget = resolve(realpathSync(ancestor), relative(ancestor, target));
+  return isPathWithin(realpathSync(soloPath), projectedTarget);
 }
 
 async function runAgentsCommand(sub: string | undefined, adapter: string | undefined, options: Record<string, string | boolean>, root: string): Promise<number> {
