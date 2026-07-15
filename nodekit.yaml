@@ -1,0 +1,44 @@
+schemaVersion: nodekit.repo/v1
+repository: HomenShum/NodeProof
+lifecycle: production
+support: active
+role: certification-harness
+commandProfile: application
+
+canonicalFor:
+  - proofloop.certification
+
+consumes:
+  - nodeplatform.repo-contract
+  - nodeagent.agent-run
+  - nodeagent.trace-workpaper
+
+commands:
+  dev: { script: dev, mode: service }
+  demo: { script: demo, mode: finite }
+  doctor: { script: doctor, mode: finite }
+  check: { script: check, mode: finite }
+  proof: { script: proof, mode: finite }
+
+noKey:
+  status: certified
+  command: npm run demo
+  externalAccountsRequired: 0
+  disclosure: Doctor and maturity scans are deterministic; live providers and hosted lanes remain explicit opt-ins.
+
+environment:
+  contractVersion: nodeplatform.env/v1
+  status: not-applicable
+
+proof:
+  command: npm run proof
+  receiptSchema: proofloop-agent-era-maturity-v1
+
+contractDeclarations:
+  - concept: nodeagent.agent-run
+    signature: agent-run-result
+    path: src/agentAdapters.ts
+    mode: adapter
+    origin: nodeagent.agent-run
+
+architectureExceptions: []
