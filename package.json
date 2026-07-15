@@ -34,6 +34,11 @@
     "LICENSE"
   ],
   "scripts": {
+    "dev": "tsc -p tsconfig.json --watch",
+    "demo": "npm run proofloop:doctor",
+    "doctor": "npm run proofloop:doctor",
+    "check": "npm test && npm audit --omit=dev",
+    "proof": "npm run proofloop:maturity",
     "build": "tsc -p tsconfig.json && npm run build:site",
     "build:site": "node scripts/build-site.mjs",
     "prepublishOnly": "npm run build",
