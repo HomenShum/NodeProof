@@ -24,6 +24,7 @@ export * from "./maturity";
 export * from "./productivity";
 export * from "./contextReport";
 export * from "./receipts";
+export * from "./proofReceipt";
 export * from "./agentAdapters";
 export * from "./agentLoop";
 export * from "./codexRelaunch";
