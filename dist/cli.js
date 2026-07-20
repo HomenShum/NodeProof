@@ -42,6 +42,7 @@ const mcp_1 = require("./mcp");
 const project_1 = require("./project");
 const runner_1 = require("./runner");
 const program_1 = require("./program");
+const nodekitProof_1 = require("./nodekitProof");
 const targetPlan_1 = require("./targetPlan");
 const hosted_1 = require("./hosted");
 const maturity_1 = require("./maturity");
@@ -122,7 +123,7 @@ function usage() {
         "  solo attest --file <envelope> --gate-receipt <receipt> --out <receipt> --key-id <id>",
         "  solo verify-attestation --file <receipt> [--public-key-file <pem>] [--key-id <id>]",
         "  runner run|resume|status|report   durable append-only task runner with budget and resume",
-        "  program run|resume|status|report  dependency-safe P0 program supervisor over runner subplans",
+        "  program run|resume|status|report|verify-nodekit  P0 program supervisor and local NodeKit proof binding",
         "  hosted intake|validate|dashboard|run   create or resume a hosted URL proof packet",
         "  target [--url <url>] [--write-runner-plan] [--write-browser-smoke]   recommend benchmark families and write target/context receipts",
         "  maturity [--dense|--json|--write] [--target-level 5]   judge agent-era codebase/app maturity and missing layers",
@@ -821,8 +822,31 @@ async function runRunnerCommand(sub, options, root) {
     return result.exitCode;
 }
 async function runProgramCommand(sub, options, root) {
+    if (sub === "verify-nodekit") {
+        const releaseProofPath = str(options.file);
+        const candidateCommit = str(options["candidate-commit"]);
+        if (!releaseProofPath || !candidateCommit) {
+            console.error("proofloop program verify-nodekit: requires --file <proof/release-proof.json> and --candidate-commit <sha>.");
+            return 2;
+        }
+        const minimumLevel = str(options["minimum-level"]);
+        if (minimumLevel !== undefined && minimumLevel !== "local-ready" && minimumLevel !== "release-ready") {
+            console.error("proofloop program verify-nodekit: --minimum-level must be local-ready or release-ready.");
+            return 2;
+        }
+        return (0, nodekitProof_1.runNodekitProofBindingVerify)({
+            root,
+            releaseProofPath,
+            candidateCommit,
+            ...(minimumLevel !== undefined ? { minimumLevel: minimumLevel } : {}),
+            ...(str(options["compiled-definition"]) !== undefined ? { compiledDefinitionPath: str(options["compiled-definition"]) } : {}),
+            ...(str(options["config-hash-file"]) !== undefined ? { configHashPath: str(options["config-hash-file"]) } : {}),
+            ...(str(options.discovery) !== undefined ? { discoveryPath: str(options.discovery) } : {}),
+            json: options.json === true,
+        });
+    }
     if (sub !== "run" && sub !== "resume" && sub !== "status" && sub !== "report") {
-        console.error("proofloop program: expected `run`, `resume`, `status`, or `report`.");
+        console.error("proofloop program: expected `run`, `resume`, `status`, `report`, or `verify-nodekit`.");
         return 2;
     }
     const result = await (0, program_1.runProofloopProgram)({

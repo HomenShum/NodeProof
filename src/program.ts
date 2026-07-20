@@ -16,6 +16,7 @@ import {
 } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { sha256CanonicalJson, verifyProofReceiptEnvelopeFile } from "./proofReceipt";
+import { verifyNodekitProofBinding, type NodekitProofMinimumLevel } from "./nodekitProof";
 import { verifyReceiptFile } from "./receipts";
 import {
   readRunnerPlan,
@@ -49,12 +50,36 @@ export type ProofloopProgramStatus =
   | "blocked_budget"
   | "blocked_authority";
 
-export type ProofloopProgramReceiptHook = {
-  kind: "proofloop-envelope" | "nodeagent-ingestion";
+export type ProofloopEnvelopeReceiptHook = {
+  kind: "proofloop-envelope";
+  file: string;
+};
+
+export type ProofloopNodeagentIngestionReceiptHook = {
+  kind: "nodeagent-ingestion";
   file: string;
   minDocuments?: number;
   minMemoryObjects?: number;
 };
+
+/**
+ * Binds NodeKit's generated proof receipt to the current compiled application
+ * identity and an exact Git candidate before a local-only program arc passes.
+ */
+export type ProofloopNodekitProofReceiptHook = {
+  kind: "nodekit-proof";
+  file: string;
+  candidateCommit: string;
+  minimumLevel?: NodekitProofMinimumLevel;
+  compiledDefinition?: string;
+  configHashFile?: string;
+  discovery?: string;
+};
+
+export type ProofloopProgramReceiptHook =
+  | ProofloopEnvelopeReceiptHook
+  | ProofloopNodeagentIngestionReceiptHook
+  | ProofloopNodekitProofReceiptHook;
 
 export type ProofloopProgramArcPlan = {
   id: string;
@@ -191,7 +216,9 @@ const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,255}$/;
 const PLAN_KEYS = new Set(["schema", "programId", "authorityPath", "arcs"]);
 const ARC_KEYS = new Set(["id", "mode", "runnerPlan", "dependsOn", "receipt", "externalEgress", "maxAttempts"]);
 const AUTHORITY_KEYS = new Set(["schema", "authorityId", "allowedArcModes", "allowExternalEgress", "maxBudgetUsd", "maxAttemptsPerArc"]);
-const RECEIPT_KEYS = new Set(["kind", "file", "minDocuments", "minMemoryObjects"]);
+const ENVELOPE_RECEIPT_KEYS = new Set(["kind", "file"]);
+const NODEAGENT_RECEIPT_KEYS = new Set(["kind", "file", "minDocuments", "minMemoryObjects"]);
+const NODEKIT_RECEIPT_KEYS = new Set(["kind", "file", "candidateCommit", "minimumLevel", "compiledDefinition", "configHashFile", "discovery"]);
 
 /** Run or resume a dependency-ordered program. P0 only permits local read/proposal arcs. */
 export async function runProofloopProgram(options: ProofloopProgramOptions): Promise<ProofloopProgramResult> {
@@ -563,14 +590,51 @@ function parseProgramArc(value: unknown, index: number, ids: Set<string>): Proof
 
 function parseReceiptHook(value: unknown, label: string): ProofloopProgramReceiptHook {
   if (!isRecord(value)) throw new Error(`${label} must be an object`);
-  rejectUnknownKeys(value, RECEIPT_KEYS, label);
-  if (value.kind !== "proofloop-envelope" && value.kind !== "nodeagent-ingestion") throw new Error(`${label} kind must be proofloop-envelope or nodeagent-ingestion`);
+  if (value.kind !== "proofloop-envelope" && value.kind !== "nodeagent-ingestion" && value.kind !== "nodekit-proof") {
+    throw new Error(`${label} kind must be proofloop-envelope, nodeagent-ingestion, or nodekit-proof`);
+  }
+  const allowedKeys = value.kind === "proofloop-envelope"
+    ? ENVELOPE_RECEIPT_KEYS
+    : value.kind === "nodeagent-ingestion"
+      ? NODEAGENT_RECEIPT_KEYS
+      : NODEKIT_RECEIPT_KEYS;
+  rejectUnknownKeys(value, allowedKeys, label);
   if (!safeRepoRelativePath(value.file)) throw new Error(`${label} file must be a safe repo-relative path`);
+
+  if (value.kind === "proofloop-envelope") {
+    return { kind: value.kind, file: value.file };
+  }
+
+  if (value.kind === "nodekit-proof") {
+    if (!validGitCommit(value.candidateCommit)) {
+      throw new Error(`${label} candidateCommit must be a lowercase 40-64 character Git SHA`);
+    }
+    if (value.minimumLevel !== undefined && value.minimumLevel !== "local-ready" && value.minimumLevel !== "release-ready") {
+      throw new Error(`${label} minimumLevel must be local-ready or release-ready`);
+    }
+    const compiledDefinition = value.compiledDefinition;
+    const configHashFile = value.configHashFile;
+    const discovery = value.discovery;
+    for (const [field, path] of [
+      ["compiledDefinition", compiledDefinition],
+      ["configHashFile", configHashFile],
+      ["discovery", discovery],
+    ] as const) {
+      if (path !== undefined && !safeRepoRelativePath(path)) throw new Error(`${label} ${field} must be a safe repo-relative path`);
+    }
+    return {
+      kind: value.kind,
+      file: value.file,
+      candidateCommit: value.candidateCommit,
+      ...(value.minimumLevel !== undefined ? { minimumLevel: value.minimumLevel } : {}),
+      ...(typeof compiledDefinition === "string" ? { compiledDefinition } : {}),
+      ...(typeof configHashFile === "string" ? { configHashFile } : {}),
+      ...(typeof discovery === "string" ? { discovery } : {}),
+    };
+  }
+
   const minDocuments = value.minDocuments === undefined ? undefined : requireNonNegativeInteger(value.minDocuments, `${label} minDocuments`);
   const minMemoryObjects = value.minMemoryObjects === undefined ? undefined : requireNonNegativeInteger(value.minMemoryObjects, `${label} minMemoryObjects`);
-  if (value.kind === "proofloop-envelope" && (minDocuments !== undefined || minMemoryObjects !== undefined)) {
-    throw new Error(`${label} minDocuments and minMemoryObjects are only valid for nodeagent-ingestion`);
-  }
   return {
     kind: value.kind,
     file: value.file,
@@ -741,6 +805,26 @@ function verifyProgramReceipt(root: string, hook: ProofloopProgramReceiptHook | 
       errors: result.errors.map((entry) => `${entry.code}: ${entry.message}`),
     };
   }
+  if (hook.kind === "nodekit-proof") {
+    const result = verifyNodekitProofBinding({
+      root,
+      releaseProofPath: hook.file,
+      candidateCommit: hook.candidateCommit,
+      ...(hook.minimumLevel !== undefined ? { minimumLevel: hook.minimumLevel } : {}),
+      ...(hook.compiledDefinition !== undefined ? { compiledDefinitionPath: hook.compiledDefinition } : {}),
+      ...(hook.configHashFile !== undefined ? { configHashPath: hook.configHashFile } : {}),
+      ...(hook.discovery !== undefined ? { discoveryPath: hook.discovery } : {}),
+    });
+    return {
+      kind: hook.kind,
+      file: hook.file,
+      ok: result.ok,
+      errors: [
+        ...result.errors,
+        ...result.gateReceipts.flatMap((receipt) => receipt.errors.map((error) => `${receipt.id}: ${error}`)),
+      ],
+    };
+  }
   const result = verifyReceiptFile({
     root,
     filePath: hook.file,
@@ -754,6 +838,10 @@ function verifyProgramReceipt(root: string, hook: ProofloopProgramReceiptHook | 
     ok: result.ok,
     errors: result.checks.filter((entry) => !entry.ok).map((entry) => `${entry.name}: ${entry.detail}`),
   };
+}
+
+function validGitCommit(value: unknown): value is string {
+  return typeof value === "string" && /^[a-f0-9]{40,64}$/.test(value);
 }
 
 function resolveProgramPlanPath(options: ProofloopProgramOptions, existing: ProofloopProgramState | undefined): string {

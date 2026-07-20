@@ -43,6 +43,7 @@ __exportStar(require("./productivity"), exports);
 __exportStar(require("./contextReport"), exports);
 __exportStar(require("./receipts"), exports);
 __exportStar(require("./proofReceipt"), exports);
+__exportStar(require("./nodekitProof"), exports);
 __exportStar(require("./agentAdapters"), exports);
 __exportStar(require("./agentLoop"), exports);
 __exportStar(require("./codexRelaunch"), exports);

@@ -354,6 +354,39 @@ This is a local P0 safety boundary, not an OS sandbox. Runner subplans still req
 environment that independently enforces network, credential, browser, deployment, and publish
 authority.
 
+### NodeKit compiled-proof binding
+
+NodeKit-generated `proof/release-proof.json` is not sufficient by itself to certify an application:
+it must also bind to the exact candidate commit and the compiler's current resolved definition.
+
+```bash
+npx proofloop program verify-nodekit \
+  --file proof/release-proof.json \
+  --candidate-commit "$(git rev-parse HEAD)" \
+  --minimum-level local-ready
+```
+
+The verifier stays local and read-only. It fails closed when the candidate commit, compiled
+`configHash`, raw `nodeagent.yaml` manifest digest, discovered source-file bytes, deterministic
+demo/evaluation receipts, or required release receipts disagree. `--minimum-level release-ready`
+also requires the live, browser, and deployment receipts NodeKit declares as release gates.
+
+An arc can use the same binding rather than a generic receipt:
+
+```json
+{
+  "kind": "nodekit-proof",
+  "file": "proof/release-proof.json",
+  "candidateCommit": "<40-or-64-char-lowercase-git-sha>",
+  "minimumLevel": "local-ready"
+}
+```
+
+The binding validates the files NodeKit's compiler discovered. It deliberately does not claim to
+cover source files omitted from that discovery contract; widening compiler discovery remains a
+NodeKit compiler responsibility. It also verifies already-produced local receipts only: it never
+deploys, invokes a provider, publishes, or promotes a candidate.
+
 ## How The Stop Gate Decides
 
 - Default check-only mode reads `.proofloop/gate-state.json` with no subprocess or network call.
@@ -430,6 +463,7 @@ script. With neither, it reports `no_gate` with exit code 2. An unconfigured gat
 | `proofloop program run --plan <file> --budget-usd <n>` | Run a P0 read/proposal-only program as dependency-safe runner subplans under `.proofloop/programs/runs/<runId>/`. |
 | `proofloop program resume --run-id latest` | Resume queued arcs, or explicitly recover an interrupted running arc through the runner. Authority or referenced-plan changes fail closed; failed arcs are not requeued. |
 | `proofloop program status\|report --run-id latest [--json]` | Inspect the pinned authority digest, program state, arc statuses, budget, and ledger. |
+| `proofloop program verify-nodekit --file <proof/release-proof.json> --candidate-commit <sha>` | Locally bind a NodeKit proof receipt to the exact checked-out candidate and compiler discovery; no deploy or external action occurs. |
 | `proofloop mcp` | Start the optional read-only MCP server. |
 | `proofloop gate [--check]` | Run configured checks or `npm test`; exit 0 pass, 1 fail, 2 unusable. |
 | `proofloop hooks install\|uninstall\|status` | Install/remove/status Claude Code Stop, PreToolUse, and PostToolUse hooks. |

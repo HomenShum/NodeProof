@@ -1,3 +1,4 @@
+import { type NodekitProofMinimumLevel } from "./nodekitProof";
 /**
  * P0 program supervisor.
  *
@@ -12,12 +13,30 @@ export declare const PROOFLOOP_PROGRAM_EVENT_SCHEMA: "proofloop-program-event-v1
 export type ProofloopProgramArcMode = "read_only" | "proposal_only";
 export type ProofloopProgramArcStatus = "queued" | "running" | "passed" | "failed" | "blocked_budget" | "blocked_authority";
 export type ProofloopProgramStatus = "queued" | "running" | "paused" | "certified" | "failed" | "failed_integrity" | "blocked_budget" | "blocked_authority";
-export type ProofloopProgramReceiptHook = {
-    kind: "proofloop-envelope" | "nodeagent-ingestion";
+export type ProofloopEnvelopeReceiptHook = {
+    kind: "proofloop-envelope";
+    file: string;
+};
+export type ProofloopNodeagentIngestionReceiptHook = {
+    kind: "nodeagent-ingestion";
     file: string;
     minDocuments?: number;
     minMemoryObjects?: number;
 };
+/**
+ * Binds NodeKit's generated proof receipt to the current compiled application
+ * identity and an exact Git candidate before a local-only program arc passes.
+ */
+export type ProofloopNodekitProofReceiptHook = {
+    kind: "nodekit-proof";
+    file: string;
+    candidateCommit: string;
+    minimumLevel?: NodekitProofMinimumLevel;
+    compiledDefinition?: string;
+    configHashFile?: string;
+    discovery?: string;
+};
+export type ProofloopProgramReceiptHook = ProofloopEnvelopeReceiptHook | ProofloopNodeagentIngestionReceiptHook | ProofloopNodekitProofReceiptHook;
 export type ProofloopProgramArcPlan = {
     id: string;
     mode: ProofloopProgramArcMode;
