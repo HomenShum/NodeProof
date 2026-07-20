@@ -1,0 +1,72 @@
+{
+  "schema": "proofloop.receipt/v1",
+  "schemaVersion": 1,
+  "receiptId": "receipt-official-eval",
+  "kind": "evaluation",
+  "createdAt": "2026-07-20T00:04:00.000Z",
+  "producer": {
+    "id": "nodebench",
+    "version": "3.2.1"
+  },
+  "subject": {
+    "type": "evaluation",
+    "id": "benchmark-case-1",
+    "runId": "eval-run-1"
+  },
+  "claim": {
+    "text": "The candidate passed the official scorer threshold.",
+    "boundary": "official",
+    "tier": "certification_ready"
+  },
+  "verdict": {
+    "status": "passed",
+    "authority": "authoritative",
+    "decisionMethod": "official_scorer",
+    "decisiveCheckIds": ["official-score"],
+    "summary": "The official scorer returned 0.92 against a 0.90 threshold."
+  },
+  "checks": [
+    {
+      "id": "official-score",
+      "status": "passed",
+      "role": "decisive",
+      "method": "official_scorer",
+      "summary": "Official score met threshold.",
+      "evidenceRefs": ["official-scorer-output"],
+      "score": 0.92,
+      "threshold": 0.9,
+      "scorer": {
+        "name": "official-example-scorer",
+        "version": "1.0.0",
+        "digest": "2222222222222222222222222222222222222222222222222222222222222222"
+      }
+    }
+  ],
+  "evidence": [
+    {
+      "id": "official-scorer-output",
+      "kind": "official-scorer-output",
+      "inline": {
+        "candidateProducedAt": "2026-07-20T00:03:00.000Z",
+        "evaluatorAccessedAt": "2026-07-20T00:03:30.000Z",
+        "score": 0.92,
+        "threshold": 0.9
+      },
+      "sha256": "32b5f2152a9915b602ecdac00afec3dcaf14c627a22d583b3e2caf1334dee4f9",
+      "hashMethod": "canonical-json-sha256"
+    }
+  ],
+  "payload": {
+    "schema": "nodebench.eval-result/v1",
+    "version": 1,
+    "mode": "inline",
+    "data": {
+      "status": "passed",
+      "score": 0.92,
+      "threshold": 0.9,
+      "scorer": "official-example-scorer@1.0.0"
+    },
+    "sha256": "0525a00b771dce844af12768208ff3b3d7dc60ff6a7177374f50273f6cc2389e",
+    "hashMethod": "canonical-json-sha256"
+  }
+}

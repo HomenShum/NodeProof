@@ -358,6 +358,8 @@ script. With neither, it reports `no_gate` with exit code 2. An unconfigured gat
 | `proofloop report latest [--json]` | Summarize the latest gate receipt. |
 | `proofloop charts latest` | Write local JSON/SVG proof charts under `.proofloop/charts/`. |
 | `proofloop receipt verify --file <path>` | Verify app-produced proof receipts such as NodeAgent ingestion receipts. |
+| `proofloop receipt envelope verify --file <path>` | Verify a `proofloop.receipt/v1` envelope, authority semantics, and local content hashes. |
+| `proofloop receipt schema [--json]` | Locate or print the packaged `proofloop.receipt/v1` JSON Schema. |
 | `proofloop solo setup --source <repo> --agent both` | Install one canonical Solo skill for Codex and Claude Code and compose one Stop gate. |
 | `proofloop solo ingest --file <envelope> --write-runner-plan` | Validate Solo evidence and optionally compile advisory tasks without executing them. |
 | `proofloop solo status\|resume\|gate` | Inspect or enforce the NodeProof-derived Solo interop state. |
@@ -420,6 +422,27 @@ npx proofloop receipt verify \
 The verifier checks the receipt type/version, `ok: true`, document-pool to memory-pool stage order,
 created document and memory-object counts, proof hashes/keys, zero source/chunk failures, and positive
 batch/concurrency config. Failed receipts exit 1, while malformed CLI usage exits 2.
+
+### Canonical receipt envelope
+
+`proofloop.receipt/v1` is the general transport envelope for gate, Solo, hosted, UI-QA, evaluation,
+runner, maturity, and app-specific receipts. It preserves each existing payload under a versioned,
+content-hashed `payload` field while keeping the verdict authority separate:
+
+- Only deterministic gates or official scorers may produce an authoritative verdict.
+- Model judges, human reviews, and imported pass claims remain advisory.
+- Decisive checks must reference locally verifiable, content-hashed evidence.
+- Inline payloads use sorted-key canonical JSON SHA-256; referenced files use raw-byte SHA-256.
+
+```bash
+npx proofloop receipt schema
+npx proofloop receipt schema --json
+npx proofloop receipt envelope verify --file proof/receipt.json
+```
+
+See [`docs/receipt-envelope-v1.md`](docs/receipt-envelope-v1.md) for the public TypeScript API,
+authority rules, and migration mapping for existing schemas. Existing receipt schemas and the
+`receipt verify --kind nodeagent-ingestion` command remain supported.
 
 ## Scope
 

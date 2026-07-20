@@ -1,0 +1,63 @@
+{
+  "schema": "proofloop.receipt/v1",
+  "schemaVersion": 1,
+  "receiptId": "receipt-official-eval-no-digest",
+  "kind": "evaluation",
+  "createdAt": "2026-07-20T00:05:00.000Z",
+  "producer": {
+    "id": "nodebench",
+    "version": "3.2.1"
+  },
+  "subject": {
+    "type": "evaluation",
+    "id": "benchmark-case-1",
+    "runId": "eval-run-1"
+  },
+  "verdict": {
+    "status": "passed",
+    "authority": "authoritative",
+    "decisionMethod": "official_scorer",
+    "decisiveCheckIds": ["official-score"],
+    "summary": "This claim is invalid because the official scorer is not content-addressed."
+  },
+  "checks": [
+    {
+      "id": "official-score",
+      "status": "passed",
+      "role": "decisive",
+      "method": "official_scorer",
+      "summary": "Official score met threshold, but scorer identity is mutable.",
+      "evidenceRefs": ["official-scorer-output"],
+      "score": 0.92,
+      "threshold": 0.9,
+      "scorer": {
+        "name": "official-example-scorer",
+        "version": "1.0.0"
+      }
+    }
+  ],
+  "evidence": [
+    {
+      "id": "official-scorer-output",
+      "kind": "official-scorer-output",
+      "inline": {
+        "score": 0.92,
+        "threshold": 0.9
+      },
+      "sha256": "b3dadb88d0a2002345be3fbee379836eb0ee930266a39b6071f185b0ecd277d3",
+      "hashMethod": "canonical-json-sha256"
+    }
+  ],
+  "payload": {
+    "schema": "nodebench.eval-result/v1",
+    "version": 1,
+    "mode": "inline",
+    "data": {
+      "status": "passed",
+      "score": 0.92,
+      "threshold": 0.9
+    },
+    "sha256": "1b23892ed9c47f7815d3f270f2f8effbd374caf82e28e293366e10ee84a4f1f6",
+    "hashMethod": "canonical-json-sha256"
+  }
+}

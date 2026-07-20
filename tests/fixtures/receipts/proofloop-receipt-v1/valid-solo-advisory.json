@@ -1,0 +1,49 @@
+{
+  "schema": "proofloop.receipt/v1",
+  "schemaVersion": 1,
+  "receiptId": "receipt-solo-advisory",
+  "kind": "solo-interop",
+  "createdAt": "2026-07-20T00:01:00.000Z",
+  "producer": {
+    "id": "solo-founder-agent-builder",
+    "version": "0.1.0"
+  },
+  "subject": {
+    "type": "run",
+    "id": "solo-run-1",
+    "runId": "solo-run-1"
+  },
+  "claim": {
+    "text": "The Solo workflow reports local readiness.",
+    "boundary": "product_path",
+    "tier": "local_ready"
+  },
+  "verdict": {
+    "status": "passed",
+    "authority": "advisory",
+    "decisionMethod": "external_claim",
+    "decisiveCheckIds": [],
+    "summary": "Imported Solo status remains advisory until NodeProof derives a gate."
+  },
+  "checks": [],
+  "evidence": [],
+  "payload": {
+    "schema": "proofloop-solo-interop-v1",
+    "version": 1,
+    "mode": "inline",
+    "data": {
+      "schema": "proofloop-solo-interop-v1",
+      "sourceVerdict": {
+        "authority": "advisory",
+        "status": "advisory_pass"
+      },
+      "programId": "program-1",
+      "goalId": "goal-1"
+    },
+    "sha256": "89dad9c58705b086fbe709bfdc9122fa4dcaa8d047d941b9c2f37decd89272cf",
+    "hashMethod": "canonical-json-sha256"
+  },
+  "lineage": {
+    "migration": "Wrap the original Solo envelope without promoting sourceVerdict authority."
+  }
+}
