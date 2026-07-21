@@ -7,6 +7,7 @@ export interface EaseProofVerification {
     manifestPath: string;
     browserManifestPath?: string;
     checkedScreenshots: number;
+    checkedReplayArtifacts: number;
     envelope?: ProofReceiptEnvelope;
     outputPath?: string;
 }

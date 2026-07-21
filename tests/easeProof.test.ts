@@ -17,16 +17,26 @@ function fixture() {
   const evidence = join(root, "proof", "ease", "latest");
   const png = Buffer.from("png-evidence");
   const candidate = Buffer.from("candidate-archive");
+  const trace = Buffer.from("playwright-trace");
+  const video = Buffer.from("browser-video");
   const commit = "a".repeat(40);
   const hash = "b".repeat(64);
   const screenshotPath = join(evidence, "browser", "screenshots", "arrival.png");
   mkdirSync(dirname(screenshotPath), { recursive: true });
   writeFileSync(screenshotPath, png);
   writeFileSync(join(evidence, "candidate.tar.gz"), candidate);
+  writeFileSync(join(evidence, "browser", "playwright-trace.zip"), trace);
+  writeFileSync(join(evidence, "browser", "journey.webm"), video);
   const browser: Record<string, unknown> = {
     schemaVersion: "nodekit.browser-certification/v1",
     certified: false,
     missingStates: ["fresh_human"],
+    serverProcess: { command: "node apps/web/server.mjs", pid: 1234 },
+    journeyAssertions: { proposalVisible: true, approvalApplied: true, receiptVisible: true, receiptSurvivedReload: true },
+    evidenceArtifacts: [
+      { id: "playwright-trace", path: "browser/playwright-trace.zip", sha256: sha256(trace), byteSize: trace.byteLength },
+      { id: "browser-video", path: "browser/journey.webm", sha256: sha256(video), byteSize: video.byteLength },
+    ],
     screenshots: [{
       path: "browser/screenshots/arrival.png",
       pngSha256: sha256(png),
@@ -66,6 +76,7 @@ describe("NodeKit EaseProof verifier", () => {
     expect(result.errors).toEqual([]);
     expect(result.ok).toBe(true);
     expect(result.easeCertified).toBe(false);
+    expect(result.checkedReplayArtifacts).toBe(2);
     expect(result.warnings).toContain("Evidence integrity may pass, but NodeKit Ease is not certified and submission remains blocked.");
     expect(verifyProofReceiptEnvelopeFile({ root, filePath: output }).ok).toBe(true);
   });
@@ -76,5 +87,13 @@ describe("NodeKit EaseProof verifier", () => {
     const result = verifyEaseProof({ root, manifestPath: "proof/ease/latest/manifest.json" });
     expect(result.ok).toBe(false);
     expect(result.errors).toContain("screenshot digest mismatch: browser/screenshots/arrival.png");
+  });
+
+  it("fails after replay evidence bytes are changed", () => {
+    const { root, evidence } = fixture();
+    writeFileSync(join(evidence, "browser", "journey.webm"), "tampered");
+    const result = verifyEaseProof({ root, manifestPath: "proof/ease/latest/manifest.json" });
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContain("browser replay artifact digest mismatch: browser/journey.webm");
   });
 });
