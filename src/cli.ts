@@ -38,6 +38,11 @@ import {
 import { installProofloopGithubCi } from "./proofloopCi";
 import { runToolUseInit, runToolUseVerify } from "./proofloopToolUse";
 import { runReceiptVerify, type ReceiptKind } from "./receipts";
+import {
+  proofReceiptSchemaPath,
+  readProofReceiptSchema,
+  runProofReceiptEnvelopeVerify,
+} from "./proofReceipt";
 import { startMcpServer } from "./mcp";
 import {
   buildProofloopProjectManifest,
@@ -54,6 +59,9 @@ import {
   type ProofloopAgentTarget,
 } from "./project";
 import { runProofloopRunner } from "./runner";
+import { runProofloopProgram } from "./program";
+import { runNodekitProofBindingVerify, type NodekitProofMinimumLevel } from "./nodekitProof";
+import { runEaseProofVerify } from "./easeProof";
 import { runProofloopTarget } from "./targetPlan";
 import {
   buildHostedRunBundle,
@@ -158,11 +166,15 @@ function usage(): string {
     "  report latest [--json]     latest gate report",
     "  charts latest              write local JSON/SVG proof charts",
     "  receipt verify --file <path>   verify app-produced proof receipts",
+    "  receipt envelope verify --file <path>   verify a proofloop.receipt/v1 envelope",
+    "  receipt schema [--json]        locate or print the proofloop.receipt/v1 JSON Schema",
+    "  ease verify --manifest <path> [--out <receipt>]   verify NodeKit EaseProof evidence integrity without inventing usability authority",
     "  solo setup --source <path> [--agent codex|claude-code|both] [--install-deps] [--verify]",
     "  solo ingest|status|gate|resume   validate and inspect Solo interop evidence",
     "  solo attest --file <envelope> --gate-receipt <receipt> --out <receipt> --key-id <id>",
     "  solo verify-attestation --file <receipt> [--public-key-file <pem>] [--key-id <id>]",
     "  runner run|resume|status|report   durable append-only task runner with budget and resume",
+    "  program run|resume|status|report|verify-nodekit  P0 program supervisor and local NodeKit proof binding",
     "  hosted intake|validate|dashboard|run   create or resume a hosted URL proof packet",
     "  target [--url <url>] [--write-runner-plan] [--write-browser-smoke]   recommend benchmark families and write target/context receipts",
     "  maturity [--dense|--json|--write] [--target-level 5]   judge agent-era codebase/app maturity and missing layers",
@@ -251,13 +263,19 @@ export function runCli(argv: string[]): number | Promise<number> {
       return runChartsCommand(positional[1], root);
 
     case "receipt":
-      return runReceiptCommand(positional[1], options, root);
+      return runReceiptCommand(positional[1], positional[2], options, root);
+
+    case "ease":
+      return runEaseCommand(positional[1], options, root);
 
     case "solo":
       return runSoloCommand(positional[1], options, root);
 
     case "runner":
       return runRunnerCommand(positional[1], options, root);
+
+    case "program":
+      return runProgramCommand(positional[1], options, root);
 
     case "hosted":
       return runHostedCommand(positional[1], options, root);
@@ -814,9 +832,41 @@ function runChartsCommand(sub: string | undefined, root: string): number {
   return 0;
 }
 
-function runReceiptCommand(sub: string | undefined, options: Record<string, string | boolean>, root: string): number {
-  if (sub !== "verify") {
-    console.error("proofloop receipt: expected `verify`.");
+function runReceiptCommand(
+  sub: string | undefined,
+  action: string | undefined,
+  options: Record<string, string | boolean>,
+  root: string,
+): number {
+  if (sub === "schema") {
+    if (action !== undefined) {
+      console.error("proofloop receipt schema: unexpected positional argument.");
+      return 2;
+    }
+    if (options.json === true) console.log(JSON.stringify(readProofReceiptSchema(), null, 2));
+    else console.log(proofReceiptSchemaPath());
+    return 0;
+  }
+
+  if (sub === "envelope") {
+    if (action !== "verify") {
+      console.error("proofloop receipt envelope: expected `verify`.");
+      return 2;
+    }
+    const filePath = str(options.file);
+    if (!filePath) {
+      console.error("proofloop receipt envelope verify: --file <path> is required.");
+      return 2;
+    }
+    return runProofReceiptEnvelopeVerify({
+      root,
+      filePath,
+      json: options.json === true,
+    });
+  }
+
+  if (sub !== "verify" || action !== undefined) {
+    console.error("proofloop receipt: expected `verify`, `envelope verify`, or `schema`.");
     return 2;
   }
 
@@ -842,6 +892,24 @@ function runReceiptCommand(sub: string | undefined, options: Record<string, stri
   });
 }
 
+function runEaseCommand(
+  sub: string | undefined,
+  options: Record<string, string | boolean>,
+  root: string,
+): number {
+  if (sub !== "verify") {
+    console.error("proofloop ease: expected `verify`.");
+    return 2;
+  }
+  const manifestPath = str(options.manifest) ?? "proof/ease/latest/manifest.json";
+  return runEaseProofVerify({
+    root,
+    manifestPath,
+    ...(str(options.out) !== undefined ? { outputPath: str(options.out)! } : {}),
+    json: options.json === true,
+  });
+}
+
 async function runRunnerCommand(sub: string | undefined, options: Record<string, string | boolean>, root: string): Promise<number> {
   if (sub !== "run" && sub !== "resume" && sub !== "status" && sub !== "report") {
     console.error("proofloop runner: expected `run`, `resume`, `status`, or `report`.");
@@ -857,6 +925,48 @@ async function runRunnerCommand(sub: string | undefined, options: Record<string,
     ...(num(options["lock-ttl-ms"]) !== undefined ? { lockTtlMs: num(options["lock-ttl-ms"])! } : {}),
     clearStaleLock: options["clear-stale-lock"] === true,
     ...(str(options["crash-after-start"]) !== undefined ? { crashAfterStartTaskId: str(options["crash-after-start"])! } : {}),
+    json: options.json === true,
+  });
+  return result.exitCode;
+}
+
+async function runProgramCommand(sub: string | undefined, options: Record<string, string | boolean>, root: string): Promise<number> {
+  if (sub === "verify-nodekit") {
+    const releaseProofPath = str(options.file);
+    const candidateCommit = str(options["candidate-commit"]);
+    if (!releaseProofPath || !candidateCommit) {
+      console.error("proofloop program verify-nodekit: requires --file <proof/release-proof.json> and --candidate-commit <sha>.");
+      return 2;
+    }
+    const minimumLevel = str(options["minimum-level"]);
+    if (minimumLevel !== undefined && minimumLevel !== "local-ready" && minimumLevel !== "release-ready") {
+      console.error("proofloop program verify-nodekit: --minimum-level must be local-ready or release-ready.");
+      return 2;
+    }
+    return runNodekitProofBindingVerify({
+      root,
+      releaseProofPath,
+      candidateCommit,
+      ...(minimumLevel !== undefined ? { minimumLevel: minimumLevel as NodekitProofMinimumLevel } : {}),
+      ...(str(options["compiled-definition"]) !== undefined ? { compiledDefinitionPath: str(options["compiled-definition"])! } : {}),
+      ...(str(options["config-hash-file"]) !== undefined ? { configHashPath: str(options["config-hash-file"])! } : {}),
+      ...(str(options.discovery) !== undefined ? { discoveryPath: str(options.discovery)! } : {}),
+      json: options.json === true,
+    });
+  }
+  if (sub !== "run" && sub !== "resume" && sub !== "status" && sub !== "report") {
+    console.error("proofloop program: expected `run`, `resume`, `status`, `report`, or `verify-nodekit`.");
+    return 2;
+  }
+  const result = await runProofloopProgram({
+    root,
+    subcommand: sub,
+    ...(str(options.plan) !== undefined ? { planPath: str(options.plan)! } : {}),
+    ...(str(options["run-id"]) !== undefined ? { runId: str(options["run-id"])! } : {}),
+    ...(num(options["budget-usd"]) !== undefined ? { budgetUsd: num(options["budget-usd"])! } : {}),
+    ...(num(options["max-arcs"]) !== undefined ? { maxArcs: num(options["max-arcs"])! } : {}),
+    ...(num(options["lock-ttl-ms"]) !== undefined ? { lockTtlMs: num(options["lock-ttl-ms"])! } : {}),
+    clearStaleLock: options["clear-stale-lock"] === true,
     json: options.json === true,
   });
   return result.exitCode;

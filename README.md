@@ -238,6 +238,7 @@ npx proofloop productivity --write --baseline-source benchmark # verified produc
 npx proofloop prompt                    # kickoff prompt to paste into your coding agent
 npx proofloop this-repo --goal "proofloop my latest updates" --write-runner-plan
 npx proofloop runner run --plan proofloop.runner.json --budget-usd 100
+npx proofloop program run --plan proofloop.program.json --budget-usd 25
 npx proofloop gate                      # run checks -> .proofloop/gate-state.json
 ```
 
@@ -293,6 +294,98 @@ you want the CLI to execute the plan with append-only state, budget control, and
 ```bash
 npx proofloop this-repo --goal "proofloop my latest updates" --write-runner-plan --run --budget-usd 100
 ```
+
+## Durable Program Supervisor (P0)
+
+`proofloop program` coordinates a small dependency-safe program by invoking the existing durable
+runner once per arc. It is intentionally not a second shell runner. Each arc points to an immutable
+`proofloop-runner-plan-v1` subplan, runs sequentially after its dependencies pass, and may require a
+locally verified ProofLoop receipt.
+
+P0 admits only `read_only` and `proposal_only` arcs. Authority is a separate JSON file whose
+canonical digest is pinned into durable program state. Any authority, program, or referenced runner
+plan change blocks or fails the existing run rather than silently continuing. Explicit external
+egress is rejected. Failed arcs are not automatically requeued; only an interrupted `running` arc
+may recover through the existing runner's explicit stale-lock recovery path.
+
+```json
+// authority.json
+{
+  "schema": "proofloop-program-authority-v1",
+  "authorityId": "overnight-read-propose-only",
+  "allowedArcModes": ["read_only", "proposal_only"],
+  "allowExternalEgress": false,
+  "maxBudgetUsd": 25,
+  "maxAttemptsPerArc": 1
+}
+```
+
+```json
+// proofloop.program.json
+{
+  "schema": "proofloop-program-plan-v1",
+  "programId": "nodekit-ultra-v1",
+  "authorityPath": "authority.json",
+  "arcs": [
+    {
+      "id": "baseline",
+      "mode": "read_only",
+      "runnerPlan": "plans/baseline.runner.json"
+    },
+    {
+      "id": "proposal",
+      "mode": "proposal_only",
+      "runnerPlan": "plans/proposal.runner.json",
+      "dependsOn": ["baseline"],
+      "receipt": { "kind": "proofloop-envelope", "file": "proof/proposal-receipt.json" }
+    }
+  ]
+}
+```
+
+```bash
+npx proofloop program run --plan proofloop.program.json --budget-usd 25
+npx proofloop program resume --run-id latest
+npx proofloop program status --run-id latest --json
+npx proofloop program report --run-id latest
+```
+
+This is a local P0 safety boundary, not an OS sandbox. Runner subplans still require an execution
+environment that independently enforces network, credential, browser, deployment, and publish
+authority.
+
+### NodeKit compiled-proof binding
+
+NodeKit-generated `proof/release-proof.json` is not sufficient by itself to certify an application:
+it must also bind to the exact candidate commit and the compiler's current resolved definition.
+
+```bash
+npx proofloop program verify-nodekit \
+  --file proof/release-proof.json \
+  --candidate-commit "$(git rev-parse HEAD)" \
+  --minimum-level local-ready
+```
+
+The verifier stays local and read-only. It fails closed when the candidate commit, compiled
+`configHash`, raw `nodeagent.yaml` manifest digest, discovered source-file bytes, deterministic
+demo/evaluation receipts, or required release receipts disagree. `--minimum-level release-ready`
+also requires the live, browser, and deployment receipts NodeKit declares as release gates.
+
+An arc can use the same binding rather than a generic receipt:
+
+```json
+{
+  "kind": "nodekit-proof",
+  "file": "proof/release-proof.json",
+  "candidateCommit": "<40-or-64-char-lowercase-git-sha>",
+  "minimumLevel": "local-ready"
+}
+```
+
+The binding validates the files NodeKit's compiler discovered. It deliberately does not claim to
+cover source files omitted from that discovery contract; widening compiler discovery remains a
+NodeKit compiler responsibility. It also verifies already-produced local receipts only: it never
+deploys, invokes a provider, publishes, or promotes a candidate.
 
 ## How The Stop Gate Decides
 
@@ -358,6 +451,8 @@ script. With neither, it reports `no_gate` with exit code 2. An unconfigured gat
 | `proofloop report latest [--json]` | Summarize the latest gate receipt. |
 | `proofloop charts latest` | Write local JSON/SVG proof charts under `.proofloop/charts/`. |
 | `proofloop receipt verify --file <path>` | Verify app-produced proof receipts such as NodeAgent ingestion receipts. |
+| `proofloop receipt envelope verify --file <path>` | Verify a `proofloop.receipt/v1` envelope, authority semantics, and local content hashes. |
+| `proofloop receipt schema [--json]` | Locate or print the packaged `proofloop.receipt/v1` JSON Schema. |
 | `proofloop solo setup --source <repo> --agent both` | Install one canonical Solo skill for Codex and Claude Code and compose one Stop gate. |
 | `proofloop solo ingest --file <envelope> --write-runner-plan` | Validate Solo evidence and optionally compile advisory tasks without executing them. |
 | `proofloop solo status\|resume\|gate` | Inspect or enforce the NodeProof-derived Solo interop state. |
@@ -365,6 +460,10 @@ script. With neither, it reports `no_gate` with exit code 2. An unconfigured gat
 | `proofloop runner resume --run-id latest --clear-stale-lock` | Resume a runner after a crash; stale `running` tasks are requeued after explicit stale-lock clearance. |
 | `proofloop runner status --run-id latest [--json]` | Inspect durable runner state and ledger paths. |
 | `proofloop runner report --run-id latest [--json]` | Print the runner honesty report with per-family/per-model pass rate and estimated cost/pass. |
+| `proofloop program run --plan <file> --budget-usd <n>` | Run a P0 read/proposal-only program as dependency-safe runner subplans under `.proofloop/programs/runs/<runId>/`. |
+| `proofloop program resume --run-id latest` | Resume queued arcs, or explicitly recover an interrupted running arc through the runner. Authority or referenced-plan changes fail closed; failed arcs are not requeued. |
+| `proofloop program status\|report --run-id latest [--json]` | Inspect the pinned authority digest, program state, arc statuses, budget, and ledger. |
+| `proofloop program verify-nodekit --file <proof/release-proof.json> --candidate-commit <sha>` | Locally bind a NodeKit proof receipt to the exact checked-out candidate and compiler discovery; no deploy or external action occurs. |
 | `proofloop mcp` | Start the optional read-only MCP server. |
 | `proofloop gate [--check]` | Run configured checks or `npm test`; exit 0 pass, 1 fail, 2 unusable. |
 | `proofloop hooks install\|uninstall\|status` | Install/remove/status Claude Code Stop, PreToolUse, and PostToolUse hooks. |
@@ -420,6 +519,27 @@ npx proofloop receipt verify \
 The verifier checks the receipt type/version, `ok: true`, document-pool to memory-pool stage order,
 created document and memory-object counts, proof hashes/keys, zero source/chunk failures, and positive
 batch/concurrency config. Failed receipts exit 1, while malformed CLI usage exits 2.
+
+### Canonical receipt envelope
+
+`proofloop.receipt/v1` is the general transport envelope for gate, Solo, hosted, UI-QA, evaluation,
+runner, maturity, and app-specific receipts. It preserves each existing payload under a versioned,
+content-hashed `payload` field while keeping the verdict authority separate:
+
+- Only deterministic gates or official scorers may produce an authoritative verdict.
+- Model judges, human reviews, and imported pass claims remain advisory.
+- Decisive checks must reference locally verifiable, content-hashed evidence.
+- Inline payloads use sorted-key canonical JSON SHA-256; referenced files use raw-byte SHA-256.
+
+```bash
+npx proofloop receipt schema
+npx proofloop receipt schema --json
+npx proofloop receipt envelope verify --file proof/receipt.json
+```
+
+See [`docs/receipt-envelope-v1.md`](docs/receipt-envelope-v1.md) for the public TypeScript API,
+authority rules, and migration mapping for existing schemas. Existing receipt schemas and the
+`receipt verify --kind nodeagent-ingestion` command remain supported.
 
 ## Scope
 
