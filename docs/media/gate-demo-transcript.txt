@@ -1,0 +1,80 @@
+$ ls   # throwaway project; the agent just claimed “done”
+app.js  package.json  test.js
+
+$ npx proofloop init
+proofloop init: detected generic web app (no framework markers detected).
+proofloop init: wrote ~/tiny-app\proofloop.config.json
+proofloop init: package scripts updated in ~/tiny-app\package.json.
+proofloop init: wrote ~/tiny-app\.proofloop\manifest.json
+
+Next steps:
+  1. Add real proof checks to proofloop.config.json gate.checks, e.g.:
+       { "name": "build", "command": "npm run build" }
+       { "name": "tests", "command": "npm test" }
+  2. Run `proofloop doctor` to confirm you're ready.
+  3. Paste `proofloop prompt` into your coding agent, then run `proofloop gate` to prove the work.
+  4. `proofloop hooks install` to make your agent refuse fake "done".
+  5. `proofloop resume --dense` shows the next action when the loop stops.
+
+$ npx proofloop gate   # the gate decides whether “done” is true
+proofloop gate: no checks configured; falling back to `npm test` (package.json has a test script).
+proofloop gate: running check "npm test" -> npm test
+
+> tiny-app@1.0.0 test
+> node test.js
+
+proofloop gate: check "npm test" FAILED (2288ms, exit 1)
+proofloop gate: FAILED
+  state: ~/tiny-app\.proofloop\gate-state.json
+  ts:    2026-08-12T21:59:07.897Z
+  source: npm-test-fallback
+  checks:
+    - [FAIL] npm test (2288ms)
+
+node:assert:150
+  throw new AssertionError(obj);
+  ^
+
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+-1 !== 5
+
+    at Object.<anonymous> (~/tiny-app\test.js:3:8)
+    at Module._compile (node:internal/modules/cjs/loader:1705:14)
+    at Object..js (node:internal/modules/cjs/loader:1838:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
+    at node:internal/main/run_main_module:36:49 {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: -1,
+  expected: 5,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v22.22.2
+
+$ # one-line fix in app.js:
+-module.exports = { add: (a, b) => a - b };
++module.exports = { add: (a, b) => a + b };
+
+$ npx proofloop gate
+proofloop gate: no checks configured; falling back to `npm test` (package.json has a test script).
+proofloop gate: running check "npm test" -> npm test
+
+> tiny-app@1.0.0 test
+> node test.js
+
+test ok: add(2,3)=5
+proofloop gate: check "npm test" PASSED (1405ms, exit 0)
+proofloop gate: PASSED
+  state: ~/tiny-app\.proofloop\gate-state.json
+  ts:    2026-08-12T21:59:14.764Z
+  source: npm-test-fallback
+  checks:
+    - [pass] npm test (1405ms)
+

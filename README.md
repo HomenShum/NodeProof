@@ -7,6 +7,10 @@ true: it runs a gate against your app, refuses false completion, captures which 
 actually called, and keeps proof state the agent cannot quietly weaken. One prompt starts the loop;
 the gate decides when it is actually done.
 
+![npx proofloop init then gate in a throwaway project: the gate FAILS (exit 1) while add() is wrong, and PASSES (exit 0) only after the one-line fix](docs/media/gate-demo.gif)
+
+*Scripted terminal session, replayed frame-by-frame — every output line is verbatim captured stdout from real `npx proofloop` runs in a throwaway project (only the temp path is shortened; full transcript: [`docs/media/gate-demo-transcript.txt`](docs/media/gate-demo-transcript.txt)). Regenerate: `node scripts/record-gate-demo.mjs`.*
+
 The CLI remains `npx proofloop` for package compatibility.
 
 Zero runtime dependencies. Node >= 20. Works on any repo.
