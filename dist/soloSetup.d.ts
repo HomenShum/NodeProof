@@ -13,7 +13,6 @@ export declare const SOLO_SMOKE_PACKAGE_SCRIPT = "npm --prefix .agents/skills/so
 export declare const SOLO_CONFORMANCE_PACKAGE_SCRIPT = "node .agents/skills/solo-founder-nodes/conformance/conformance.mjs --run-smoke";
 export declare const SOLO_INSTALL_DEPENDENCIES_COMMAND = "npm --prefix .agents/skills/solo-founder-nodes/templates install --ignore-scripts --no-audit --no-fund";
 export type SoloSetupAgents = "codex" | "claude-code" | "both";
-export type SoloSetupAgent = SoloSetupAgents;
 export type SoloSetupStatus = "ready" | "needs_source" | "conflict" | "failed";
 export type SoloInstallAction = "none" | "installed" | "unchanged" | "updated";
 export type SoloSetupCommandRunnerResult = number | void | {
@@ -80,11 +79,6 @@ export type SoloSetupResult = SoloSetupReceipt & {
 };
 /** Install a validated local Solo skill without contacting a model provider. */
 export declare function setupSolo(options?: SoloSetupOptions): SoloSetupResult;
-/** Compatibility aliases for callers that describe setup as installation. */
-export declare const installSoloSkill: typeof setupSolo;
-export declare const installSoloFounderNodes: typeof setupSolo;
-export declare const setupSoloSkill: typeof setupSolo;
-export declare const installSoloFounderSkill: typeof setupSolo;
 export declare function soloSetupReceiptPath(root: string): string;
 /**
  * One host-neutral Stop command: base NodeProof gate, optional Solo judge, then

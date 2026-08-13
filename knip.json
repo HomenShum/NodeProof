@@ -1,0 +1,11 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "api/**/*.js",
+    "public/app.js",
+    "scripts/*.mjs",
+    "tests/**/*.test.ts"
+  ],
+  "project": ["src/**/*.ts", "api/**/*.js", "public/*.js", "scripts/*.mjs"],
+  "ignoreBinaries": ["proofloop"]
+}

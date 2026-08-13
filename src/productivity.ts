@@ -1,3 +1,15 @@
+/**
+ * `proofloop productivity` -- turn a gate run into a wage-equivalent estimate of
+ * what it saved, for someone who has to justify the tooling to a budget holder.
+ *
+ * The honesty rule is the whole design. Every number carries its
+ * `baselineSource` (`measured` | `historical` | `benchmark` | `research` |
+ * `estimated`), and the headline value is multiplied twice before it is
+ * reported: by a confidence taken from that source (`SOURCE_CONFIDENCE`, where
+ * `estimated` is 0.45), and by the REAL gate verdict, where a failing gate
+ * multiplies the claimed value to zero. An estimate can therefore never present
+ * itself as a measurement, and unproven work is worth nothing here.
+ */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { gateStatePath, type GateState } from "./gate";

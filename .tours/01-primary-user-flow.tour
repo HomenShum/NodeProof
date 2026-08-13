@@ -1,0 +1,61 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "01 — Primary user flow: a coding agent is refused",
+  "description": "Follow `proofloop gate` from the command line to the JSON receipt that makes a verdict outlive the session. Read docs/START_HERE.md alongside this tour.",
+  "steps": [
+    {
+      "file": "src/cli.ts",
+      "line": 185,
+      "title": "Entry",
+      "description": "Everything starts here. One switch on the first argument — no router, no plugin registry. `dist/cli.js` is the compiled form of this file and is what `package.json` → `bin.proofloop` points at.\n\nNote `root`: every command operates on a repo directory, defaulting to the current one, overridable with `--dir`."
+    },
+    {
+      "file": "src/cli.ts",
+      "line": 210,
+      "title": "The command we are following",
+      "description": "`proofloop gate` — the primary user action. `--check` means 'read the last verdict, run nothing', which is the mode the Stop hook uses."
+    },
+    {
+      "file": "src/gate.ts",
+      "line": 169,
+      "title": "The gate, in two modes",
+      "description": "Check mode reads the persisted verdict and exits on it. If there is no verdict at all it returns 2 — **fail-closed**. 'Nobody has run the gate yet' must never read as 'the gate passed'."
+    },
+    {
+      "file": "src/gate.ts",
+      "line": 113,
+      "title": "Run mode: deciding what counts as proof",
+      "description": "Three sources, in priority order: the checks a human configured; otherwise `npm test` if package.json declares one; otherwise nothing, which is status `no_gate` and exit 2. The chosen source is recorded in the receipt so a reader can tell a real gate from a fallback."
+    },
+    {
+      "file": "src/config.ts",
+      "line": 63,
+      "title": "Where untrusted JSON becomes typed data",
+      "description": "The only place `proofloop.config.json` is interpreted. A check with a blank command is dropped rather than run; every field gets a default so no caller downstream has to test for `undefined`.\n\nMissing file → `undefined` (fall back to npm test). Unparseable file → throws, on purpose: a gate run against a broken config would prove nothing while looking green."
+    },
+    {
+      "file": "src/gate.ts",
+      "line": 92,
+      "title": "Running a check",
+      "description": "`stdio: \"inherit\"` is the whole rendering story — your test runner's output goes straight to your terminal, live and unedited. Only the summary is formatted by this tool.\n\nA hung check is killed at the 30-minute timeout and recorded as a failure with `exitCode: null`."
+    },
+    {
+      "file": "src/gate.ts",
+      "line": 155,
+      "title": "The receipt",
+      "description": "This object is the product. It is written to `.proofloop/gate-state.json` and is what makes the verdict survive the session: the Stop hook reads it, `proofloop resume` reads it, and a human can open it in an editor."
+    },
+    {
+      "file": "src/gate.ts",
+      "line": 53,
+      "title": "One place that maps status to exit code",
+      "description": "0 passed, 1 failed, 2 unusable. Every caller — CLI, hook, agent loop — goes through this function, so the three exit codes cannot drift apart."
+    },
+    {
+      "file": "tests/gate.test.ts",
+      "line": 88,
+      "title": "The tests that hold this in place",
+      "description": "Five cases: all checks pass, one check fails, the npm-test fallback, `no_gate` when nothing is configured, and `--check` reading the last verdict without re-running. Change the gate and these are the tests that should fail first."
+    }
+  ]
+}

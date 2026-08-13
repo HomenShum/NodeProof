@@ -81,7 +81,6 @@ const EXCLUDED_DIRECTORY_NAMES = new Set([
 ]);
 
 export type SoloSetupAgents = "codex" | "claude-code" | "both";
-export type SoloSetupAgent = SoloSetupAgents;
 export type SoloSetupStatus = "ready" | "needs_source" | "conflict" | "failed";
 export type SoloInstallAction = "none" | "installed" | "unchanged" | "updated";
 
@@ -361,12 +360,6 @@ export function setupSolo(options: SoloSetupOptions = {}): SoloSetupResult {
       : "Solo skill setup is ready.",
   );
 }
-
-/** Compatibility aliases for callers that describe setup as installation. */
-export const installSoloSkill = setupSolo;
-export const installSoloFounderNodes = setupSolo;
-export const setupSoloSkill = setupSolo;
-export const installSoloFounderSkill = setupSolo;
 
 export function soloSetupReceiptPath(root: string): string {
   return join(resolve(root), ...SOLO_SETUP_RECEIPT_PATH.split("/"));

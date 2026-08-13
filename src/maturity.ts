@@ -1,3 +1,14 @@
+/**
+ * `proofloop maturity` -- score this repository against a fixed six-level ladder
+ * (0-5) of agent-era readiness and name what is missing at the next level.
+ *
+ * It is a FILE-EVIDENCE scan, not a judgement: each capability is `met`,
+ * `partial`, or `missing` based on paths and contents that exist in the repo.
+ * That is deliberately conservative and deliberately fallible in one direction
+ * -- a capability whose check matches a filename can read `met` while the thing
+ * it names does not actually run. One such case is recorded in
+ * `docs/codebase/CONCERNS.md`; do not treat a `met` here as a proof.
+ */
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import type { Dirent } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";

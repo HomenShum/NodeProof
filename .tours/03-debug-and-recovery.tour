@@ -1,0 +1,61 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "03 — Debug and recovery: the refusal, and picking work up cold",
+  "description": "What happens when the gate says no: the Stop hook that refuses the agent's 'done', the three safety properties that keep it from bricking a repo, and how a fresh session resumes with no transcript.",
+  "steps": [
+    {
+      "file": "src/cli.ts",
+      "line": 958,
+      "title": "Entry: proofloop hooks install",
+      "description": "Writes three scripts into `.proofloop/hooks/` and registers them in the assistant's own settings file. Idempotent: re-running reports `(already present)` rather than duplicating entries."
+    },
+    {
+      "file": "src/proofloopHooks.ts",
+      "line": 1,
+      "title": "What was ported, and what must not regress",
+      "description": "This module came from a working implementation, and the header lists the security semantics that were preserved. Read it before editing: deep-merge that does not clobber a user's own hooks, a per-session block counter, a guard that blocks edits to protected paths using pure string checks that cannot fail open, and a fail-open logger paired with a fail-closed verifier."
+    },
+    {
+      "file": "src/proofloopHooks.ts",
+      "line": 60,
+      "title": "Why the default gate command is check-only",
+      "description": "The comment above `DEFAULT_GATE_COMMAND` is the design decision in full: a Stop hook must be deterministic and offline-safe, so the default reads the persisted verdict instead of shelling out to `npx`, which would make the stop verdict depend on the npm registry and the network."
+    },
+    {
+      "file": "src/proofloopHooks.ts",
+      "line": 504,
+      "title": "The generated hook script",
+      "description": "`stopGateScript` returns the text of `.proofloop/hooks/stop-gate.mjs`. It is generated rather than shipped so it can carry an install-time snapshot of the config, and it imports nothing from this project — plain Node — so it keeps working after the package is uninstalled.\n\nThe docblock states the assumed Stop-hook contract and tells you to re-verify it against the current hooks documentation. That is the honest way to depend on someone else's protocol."
+    },
+    {
+      "file": "src/proofloopHooks.ts",
+      "line": 653,
+      "title": "Loop protection comes first",
+      "description": "Before any gate check: if this session has already been blocked `maxStopBlocks` times (default 5), allow the stop and say plainly on stderr that the gate is still failing. A supervisor that can trap a session forever gets uninstalled by lunchtime.\n\nRead the next twenty lines for the other two properties: fail **open** when no gate is configured or no verdict exists yet, and fail **closed** on an actual `failed` verdict."
+    },
+    {
+      "file": "src/proofloopHooks.ts",
+      "line": 693,
+      "title": "The refusal itself",
+      "description": "`{\"decision\":\"block\",\"reason\":...}` on stdout is what sends the assistant back to work, and the reason carries the first three failing checks plus the block count, so the agent knows both what to fix and how much rope is left."
+    },
+    {
+      "file": "src/project.ts",
+      "line": 518,
+      "title": "Recovery: resuming cold",
+      "description": "`proofloop resume --dense` reads the same `.proofloop/gate-state.json` and prints the next action. This is the surface for a *new* session with no memory of the last one — a different assistant, or the same one after a crash."
+    },
+    {
+      "file": "promotion/PROMOTION_LOG.md",
+      "line": 64,
+      "title": "The open defect ledger",
+      "description": "Known, reproducible, user-visible defects with their reproductions, kept in git so the next reader inherits the honest list rather than a clean-looking one. D1 and D2 are open product defects on the landing page; D3 was closed by deleting dead code — see docs/SIMPLIFICATION_REPORT.md."
+    },
+    {
+      "file": "scripts/browser-proof.mjs",
+      "line": 1,
+      "title": "Proving the page in a real browser",
+      "description": "`npm run proofloop:browser-proof` serves `public/`, mounts the repo's own `api/**` handlers with Vercel's routing rules, drives both landing-page journeys in Chromium, and writes `promotion/evidence/browser-proof/receipt.json` plus screenshots.\n\nIt binds an explicit port and exits 2 if that port is taken, rather than measuring somebody else's dev server."
+    }
+  ]
+}

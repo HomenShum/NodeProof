@@ -1,3 +1,14 @@
+/**
+ * `proofloop target [--url ...]` -- given a repository or a live URL, recommend
+ * WHICH families of proof are worth running against it (a static marketing page
+ * and an agent app do not deserve the same suite), and optionally write a runner
+ * plan and a context report so an agent can start immediately.
+ *
+ * The recommendation is a classification, not a measurement: it says what to
+ * probe, and `gate.ts` / the runner produce the numbers. Fetching a URL is
+ * best-effort and bounded by `--timeout-ms`; an unreachable target degrades to a
+ * repository-only plan rather than failing the command.
+ */
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import type { Dirent } from "node:fs";
 import { dirname, join, resolve } from "node:path";

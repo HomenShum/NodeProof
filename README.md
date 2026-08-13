@@ -15,6 +15,14 @@ The CLI remains `npx proofloop` for package compatibility.
 
 Zero runtime dependencies. Node >= 20. Works on any repo.
 
+> **New to this codebase?** Read [`docs/START_HERE.md`](docs/START_HERE.md)
+> instead of this file. It walks one real user action through the code in the
+> order it executes, naming every file and line. Then open `.tours/` in VS Code
+> with the CodeTour extension for the same walk inside the editor. Reference
+> pages live in [`docs/codebase/`](docs/codebase/) — stack, structure,
+> architecture, conventions, integrations, testing, and the honest list of
+> what is still wrong ([CONCERNS.md](docs/codebase/CONCERNS.md)).
+
 ## Agent and Provider Interop
 
 Codex and Claude Code can install local hook enforcement; other hosts are represented as adapter receipts until a launch, trace-capture, and gate-enforcement surface exists:

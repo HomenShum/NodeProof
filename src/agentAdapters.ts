@@ -1,3 +1,14 @@
+/**
+ * One small adapter per coding agent -- Codex, Claude Code, Cursor, Windsurf,
+ * Devin, and a generic CLI -- so the rest of the codebase can say "install your
+ * hooks" and "here is a repair prompt, go fix it" without knowing which agent is
+ * on the other side.
+ *
+ * An adapter is deliberately thin: where its settings file lives, and how to
+ * launch it with a prompt file. Launching is spawn-based and reports
+ * `needs_command` rather than guessing when the agent is not installed --
+ * silently doing nothing would look identical to a passing run.
+ */
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";

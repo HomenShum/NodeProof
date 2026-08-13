@@ -33,7 +33,7 @@ Each journey states, in this order:
 - **Steps:**
   1. `git clone https://github.com/HomenShum/NodeProof.git && cd NodeProof`
   2. `npm install`
-  3. `npm test` (its `pretest` runs `npm run build` first: `tsc -p tsconfig.json && node scripts/build-site.mjs`)
+  3. `npm test` (its `pretest` runs `npm run build` first: `tsc -p tsconfig.json`)
 - **Done when:** `npm test` exits 0 and prints a test count, having first
   produced `dist/cli.js` — the binary every other journey depends on.
 - **Evidence:** [evidence/baseline-2026-08-13.md](evidence/baseline-2026-08-13.md) §J1 — install 52 packages/11 s exit 0; build exit 0; `26 passed (26)` files, `145 passed (145)` tests, exit 0.

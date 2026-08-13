@@ -1,3 +1,14 @@
+/**
+ * Interop with the Solo Founder toolchain: another system hands this one an
+ * "envelope" of work it claims to have done, and this module decides whether to
+ * believe it before compiling it into a runner plan.
+ *
+ * Treat every envelope as hostile input from another machine. Validation is
+ * schema-pinned (`schemas/proofloop-solo-interop-v1.schema.json`, whose digest
+ * is hard-coded above so a swapped schema file is detected), paths are checked
+ * for traversal, and a failed validation produces an operation result with
+ * reasons rather than a throw. State lives under `.proofloop/interop/solo/`.
+ */
 import { execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import {

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.installSoloFounderSkill = exports.setupSoloSkill = exports.installSoloFounderNodes = exports.installSoloSkill = exports.SOLO_INSTALL_DEPENDENCIES_COMMAND = exports.SOLO_CONFORMANCE_PACKAGE_SCRIPT = exports.SOLO_SMOKE_PACKAGE_SCRIPT = exports.SOLO_SFN_PACKAGE_SCRIPT = exports.SOLO_SETUP_INTEROP_SCHEMA_RAW_SHA256 = exports.SOLO_SETUP_INTEROP_SCHEMA_DIGEST = exports.SOLO_STOP_GATE_COMMAND = exports.SOLO_STOP_GATE_PATH = exports.SOLO_SETUP_RECEIPT_PATH = exports.SOLO_CLAUDE_WRAPPER_PATH = exports.SOLO_CANONICAL_SKILL_PATH = exports.SOLO_SKILL_NAME = void 0;
+exports.SOLO_INSTALL_DEPENDENCIES_COMMAND = exports.SOLO_CONFORMANCE_PACKAGE_SCRIPT = exports.SOLO_SMOKE_PACKAGE_SCRIPT = exports.SOLO_SFN_PACKAGE_SCRIPT = exports.SOLO_SETUP_INTEROP_SCHEMA_RAW_SHA256 = exports.SOLO_SETUP_INTEROP_SCHEMA_DIGEST = exports.SOLO_STOP_GATE_COMMAND = exports.SOLO_STOP_GATE_PATH = exports.SOLO_SETUP_RECEIPT_PATH = exports.SOLO_CLAUDE_WRAPPER_PATH = exports.SOLO_CANONICAL_SKILL_PATH = exports.SOLO_SKILL_NAME = void 0;
 exports.setupSolo = setupSolo;
 exports.soloSetupReceiptPath = soloSetupReceiptPath;
 exports.buildSoloStopGateScript = buildSoloStopGateScript;
@@ -234,11 +234,6 @@ function setupSolo(options = {}) {
         ? "Solo skill already matched the trusted source manifest; project setup is ready."
         : "Solo skill setup is ready.");
 }
-/** Compatibility aliases for callers that describe setup as installation. */
-exports.installSoloSkill = setupSolo;
-exports.installSoloFounderNodes = setupSolo;
-exports.setupSoloSkill = setupSolo;
-exports.installSoloFounderSkill = setupSolo;
 function soloSetupReceiptPath(root) {
     return (0, node_path_1.join)((0, node_path_1.resolve)(root), ...exports.SOLO_SETUP_RECEIPT_PATH.split("/"));
 }

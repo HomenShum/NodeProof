@@ -5,6 +5,4 @@ node_modules/
 .DS_Store
 
 .vercel
-public/webcontainer-demo.bundle.js
-public/xterm.css
 .env*.local
