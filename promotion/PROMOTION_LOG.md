@@ -83,6 +83,18 @@ reproduction; a hunch is not a defect.
   focus-ring behaviour *were* observed while the tab was foregrounded. Wave 2
   should re-drive Enter with a foregrounded tab before claiming condition 6.
 
+  **Resolved by iteration 1** — `scripts/browser-proof.mjs` types into the input
+  and presses Enter with real keystrokes in a foregrounded Chromium page, and
+  asserts the same status the click path produces (`receipt.json` →
+  `journeys.J4.enterKeySubmits`). Condition 6 still FAILs, on D2, not on this.
+
+- **Resolved by iteration 1** — the `npm run demo` gap listed above ("Playwright/
+  browser proof dependency or config"). It was noted as "the tool working as
+  designed", which it was, but it was also a defect: the repo could not prove its
+  own page, which is the one thing this product sells. `npm run demo` no longer
+  reports it. The other two entries — `.proofloop/manifest.json` and root agent
+  instructions — remain open and are unclaimed.
+
 ## Correction — 2026-08-13
 
 The baseline above was pushed claiming **6/12 PASS**. It is **1/12 PASS**. This
@@ -130,4 +142,82 @@ No product code was touched by this correction.
 
 ## Iterations
 
-_none yet — Wave 1 is baseline only; fixing is Wave 2's job._
+### Iteration 1 — 2026-08-13
+
+- **Journey exercised:** J4 "Here's my repo, give me the commands" and J5 "Prove
+  it won't run against a site I don't own", both driven in a real Chromium; J1
+  and J3 re-run in a terminal alongside them.
+
+- **Observed:** the repo could not prove its own page. `npm run demo` reported
+  `"playwright": { "declared": false, "configExists": false }` and listed
+  **"Playwright/browser proof dependency or config"** among its own `missing`
+  entries. Reproduction: `npm ci && npm run build && npm run demo` on `9a837ee`
+  — full output in
+  [evidence/iteration-1-2026-08-13.md](evidence/iteration-1-2026-08-13.md).
+
+  Root cause, traced upstream rather than at the symptom. The symptom is that
+  five scorecard rows (1, 3, 4, 9, 10) had no producer. Why? Because nobody could
+  re-run the browser measurements. Why? Because no committed script *starts* the
+  landing page — `public/` is a static Vercel deploy with `api/**` as functions,
+  and `npm run dev` is `tsc --watch`. Why was there no such script? Because the
+  repo assumed `vercel dev`, which needs an account login. So Wave 1 wrote a
+  throwaway harness, measured through it, and threw it away — which is precisely
+  why those rows were downgraded.
+
+  Under that sits a second, sharper cause: **the Playwright dependency was real
+  but undeclared.** `scripts/hosted-worker.mjs:37` and
+  `scripts/record-gate-demo.mjs:33` both `await import("playwright")` and print
+  "install it yourself first" when it is missing, and
+  `.github/workflows/hosted-proofloop.yml:42` installs it with
+  `npm install --no-save playwright@1.49.1`. Three callers, one workaround each,
+  no entry in `package.json`. That is why the doctor was right about itself.
+
+- **Fixed:** at the shared cause, not per caller.
+  - `package.json` — declares `playwright` in `devDependencies` (the package the
+    two existing scripts actually import; `@playwright/test`, which the doctor's
+    own fix line suggests, would have left both of them still undeclared), and
+    adds `proofloop:browser-proof`.
+  - `scripts/browser-proof.mjs` (new, ~200 lines, node stdlib + playwright) —
+    the missing local server plus the probe. Serves `public/` and mounts the
+    repo's own `api/**/*.js` handlers unchanged using Vercel's own routing
+    (`cleanUrls: true`), then drives J4 and J5 in Chromium and writes the
+    receipt. Binds `127.0.0.1:4310` explicitly and **exits 2 if the port is
+    taken** rather than measuring somebody else's dev server.
+  - `tests/browserProof.test.ts` (new) — the regression check.
+  - No product code was changed. D1, D2 and D3 stay open; the probe now records
+    D1 and D2 in `receipt.json` → `openDefects`, so a later fix flips a field a
+    reader can diff.
+
+- **Re-proved:** in the rendered app and in a real run.
+  - `promotion/evidence/browser-proof/` — `receipt.json` (`"pass": true`,
+    `"failures": []`) and nine screenshots, produced by
+    `npm run proofloop:browser-proof`. Six widths measured with the J5 refusal
+    JSON rendered, all `scrollWidth − clientWidth = 0`; `domContentLoaded`
+    206 ms; zero page errors, zero failed requests, zero unexplained console
+    errors.
+  - `npm run demo` no longer lists the Playwright/browser gap — the product
+    reporting, about itself, that the defect is closed.
+  - Port note, kept because it is the guard working: 4310 was held by an
+    unrelated local server, the probe refused, and the run was repeated with
+    `--port 4311`, which the receipt records.
+
+- **Tests:** `npm test` → 27 files, 149 tests, 0 failed, exit 0 (baseline 26 /
+  145). `npm run build` exit 0. `node dist/cli.js gate` → PASSED, exit 0.
+  The four new tests were **confirmed failing on the pre-fix tree** by stashing
+  the change and re-running them — see the iteration evidence file for the
+  output.
+
+- **Conditions newly PASS:** 1, 3, 4, 9, 10. Scorecard 1/12 → 6/12.
+
+- **Deliberately not claimed.** 2, 5 and 6 stay FAIL — D1, D2 and D3 are still
+  open and this iteration fixed one defect, not four. 7 and 8 stay UNVERIFIED —
+  no Web Interface Guidelines review and no Lighthouse/axe run happened. 12 stays
+  UNVERIFIED — it asks whether *improvements were verified in the rendered app*,
+  and this iteration improved the proof apparatus rather than the page; the first
+  product-code fix is what turns it.
+
+- **New observation, not a defect:** `src/maturity.ts:270` scores
+  `live_browser_verification` as `met` whenever `scripts/hosted-worker.mjs`
+  merely *exists*. It read `met` before this iteration, when nothing in the repo
+  could open a browser. The capability check matches a filename, not a runnable
+  path. Recorded here; not claimed as fixed.

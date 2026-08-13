@@ -84,7 +84,7 @@ Each journey states, in this order:
   containing `git clone`, `npx proofloop init --agent auto --live`,
   `npx proofloop maturity --target-level 5 --write`, `npx proofloop gate` — and
   crucially does *not* queue github.com itself for live-browser automation.
-- **Evidence:** [evidence/baseline-2026-08-13.md](evidence/baseline-2026-08-13.md) §J4 — Chrome DOM after the click: status "GitHub repo target ready." + the four-command block for `HomenShum/NodeProof`; screenshot `ss_5046tck1a`.
+- **Evidence:** [evidence/browser-proof/](evidence/browser-proof/) — driven in Chromium by the committed `scripts/browser-proof.mjs` (`npm run proofloop:browser-proof`): status "GitHub repo target ready." with all four commands present, screenshots `j4-01-empty-1280.png` (designed empty state) and `j4-02-repo-ready-1280.png`, and a check that github.com never reaches `/api/hosted/submit`. The Enter-to-submit path (`public/app.js:139`), which the baseline could not confirm, is now driven with real keystrokes. Superseded: [evidence/baseline-2026-08-13.md](evidence/baseline-2026-08-13.md) §J4 cited screenshot handle `ss_5046tck1a`, which no reader can open.
 
 ## J5 — "Prove it won't run against a site I don't own" (the receipt journey)
 
@@ -100,7 +100,7 @@ Each journey states, in this order:
   verification method, the exact `.well-known` file or DNS TXT token to publish,
   and the blockers list — produced by `verifiedHostAllowlist()` in
   `api/hosted/_shared.js`, not by the browser.
-- **Evidence:** [evidence/baseline-2026-08-13.md](evidence/baseline-2026-08-13.md) §J5 — Chrome DOM: `{"status":"pending","host":"example.com","method":"well-known-token","token":"proofloop-domain-example-com-verify", "evidence":[...]}`; screenshot `ss_1809mprwv`. Also the defect D1 report: the headline word rendered above that JSON is the bare token `blocked`.
+- **Evidence:** [evidence/browser-proof/](evidence/browser-proof/) — screenshot `j5-01-refused-1280.png` and `receipt.json` → `journeys.J5`: the refusal carries `"host": "example.com"`, `"method": "well-known-token"`, `"token": "proofloop-domain-example-com-verify"` and `blockers`, over `POST /api/hosted/submit -> 400`, in 211 ms. Defect D1 is visible in the same screenshot — the headline above that JSON is the bare token `blocked` — and is recorded in `receipt.json` → `openDefects`. Superseded: [evidence/baseline-2026-08-13.md](evidence/baseline-2026-08-13.md) §J5 cited screenshot handle `ss_1809mprwv`.
 
 ---
 
