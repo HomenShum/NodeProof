@@ -45,8 +45,8 @@ Three properties at once. `api/hosted/_shared.js:2` and
 `scripts/hosted-worker.mjs:11` `require()` the compiled `dist/`, so it is not
 merely a build artefact.
 
-**The cost, concretely:** `dist/` is 60 tracked files, roughly a third of the
-repository, and `npx knip` counts every one of them as unused. It can drift from
+**The cost, concretely:** `dist/` is 60 of the repository's 215 tracked files,
+and with no `knip.json` every one of them is reported unused. It can drift from
 `src/` with nothing detecting it. On Windows, a rebuild marks all 60 modified in
 `git status` while `git diff` shows no content change — line-ending churn that
 buries the real diff.

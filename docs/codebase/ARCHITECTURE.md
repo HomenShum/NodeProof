@@ -107,9 +107,10 @@ dependency of the deployed functions. All three at once, which is unusual, so:
   directly, un-compiled.
 - Committing `dist/` means those requires resolve even if a build step is
   skipped, and it is what `package.json` `files` publishes.
-- The cost is real: `dist/` is 60 of the repository's ~145 non-generated-looking
-  files, it can silently drift from `src/`, and on Windows it produces
-  line-ending churn in `git status`. `docs/codebase/CONCERNS.md` records this as
+- The cost is real: `dist/` is 60 of the repository's 215 tracked files — more
+  than a quarter of everything you can open — it can silently drift from
+  `src/`, and on Windows a rebuild marks all 60 modified in `git status` while
+  `git diff` shows no content change. `docs/codebase/CONCERNS.md` records this as
   an accepted, unresolved finding with the reason it was not changed in this
   pass.
 

@@ -37,8 +37,10 @@ node dist/cli.js gate   # runs this repo's own gate against itself
 node dist/cli.js help   # every command, one line each
 ```
 
-`npm test` should print `Test Files 27 passed (27)` / `Tests 149 passed (149)`.
+`npm test` should print `Test Files 28 passed (28)` / `Tests 198 passed (198)`.
 If it does, the walkthrough below describes code that works on your machine.
+(Measured on a fresh clone of this commit; if your counts are higher, someone
+has added tests since — that is fine, a lower count is not.)
 
 There is a second, smaller surface: the landing page in `public/`, deployed as a
 static site with `api/**` as serverless functions. It has its own walkthrough at
@@ -49,7 +51,7 @@ the end of this file, and its own browser proof:
 
 # Surface 1 — the proof loop (the primary flow)
 
-Nine steps. Each names the file, the symbol, who calls it, and what it calls
+Ten steps. Each names the file, the symbol, who calls it, and what it calls
 next, so you can put this page down at any point and keep going in the editor.
 
 ## Step 1 — The command line enters the program
