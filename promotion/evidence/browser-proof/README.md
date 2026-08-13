@@ -28,7 +28,7 @@ through journeys J4 and J5 and writes `receipt.json` plus the screenshots here.
 
 ## This run
 
-- Captured `2026-08-13T11:50:43Z`, Node v22.22.2, Playwright 1.62.1, Windows 11.
+- Captured `2026-08-13T11:55:58Z`, Node v22.22.2, Playwright 1.62.1, Windows 11.
 - Served on `http://127.0.0.1:4311` — **not** the 4310 default. Port 4310 was
   held by an unrelated local server, the probe refused to continue, and the run
   was repeated with `--port 4311`. The receipt records the port actually used.
@@ -53,8 +53,18 @@ through journeys J4 and J5 and writes `receipt.json` plus the screenshots here.
 | 1280 | 0 | 2 | 117 px | 76 px |
 | 2560 | 0 | 2 | 117 px | 76 px |
 
-Timings on first load: `domContentLoaded` 206 ms, `load` 206 ms, 9 874 B
-same-origin transfer. Click-to-status latency on J5 (the network path): 211 ms.
+Timings on first load: `domContentLoaded` 198 ms, `load` 198 ms, 9 874 B
+same-origin transfer. Click-to-status latency on J5 (the network path): 346 ms,
+which includes the live `.well-known` fetch and DNS TXT lookup against
+example.com. Read from `performance.getEntriesByType("navigation")` inside the
+page, not estimated from file sizes.
+
+The timings are the one part of this receipt that moves between runs — a fresh
+clone re-run on `--port 4312` produced `domContentLoaded` 392 ms and 402 ms
+latency on a loaded machine. Everything asserted (`pass`, `failures`, the whole
+`layout` table, `journeys`, the console classification, `openDefects`) came back
+byte-identical, and the nine PNGs re-rendered with no diff at all. Quote the
+receipt, not this paragraph.
 
 ## The one non-2xx, and why it is not a failure
 

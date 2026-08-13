@@ -100,7 +100,7 @@ Each journey states, in this order:
   verification method, the exact `.well-known` file or DNS TXT token to publish,
   and the blockers list — produced by `verifiedHostAllowlist()` in
   `api/hosted/_shared.js`, not by the browser.
-- **Evidence:** [evidence/browser-proof/](evidence/browser-proof/) — screenshot `j5-01-refused-1280.png` and `receipt.json` → `journeys.J5`: the refusal carries `"host": "example.com"`, `"method": "well-known-token"`, `"token": "proofloop-domain-example-com-verify"` and `blockers`, over `POST /api/hosted/submit -> 400`, in 211 ms. Defect D1 is visible in the same screenshot — the headline above that JSON is the bare token `blocked` — and is recorded in `receipt.json` → `openDefects`. Superseded: [evidence/baseline-2026-08-13.md](evidence/baseline-2026-08-13.md) §J5 cited screenshot handle `ss_1809mprwv`.
+- **Evidence:** [evidence/browser-proof/](evidence/browser-proof/) — screenshot `j5-01-refused-1280.png` and `receipt.json` → `journeys.J5`: the refusal carries `"host": "example.com"`, `"method": "well-known-token"`, `"token": "proofloop-domain-example-com-verify"` and `blockers`, over `POST /api/hosted/submit -> 400`, in 346 ms. Defect D1 is visible in the same screenshot — the headline above that JSON is the bare token `blocked` — and is recorded in `receipt.json` → `openDefects`. Superseded: [evidence/baseline-2026-08-13.md](evidence/baseline-2026-08-13.md) §J5 cited screenshot handle `ss_1809mprwv`.
 
 ---
 

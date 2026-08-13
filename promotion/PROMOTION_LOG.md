@@ -193,19 +193,36 @@ No product code was touched by this correction.
     `"failures": []`) and nine screenshots, produced by
     `npm run proofloop:browser-proof`. Six widths measured with the J5 refusal
     JSON rendered, all `scrollWidth − clientWidth = 0`; `domContentLoaded`
-    206 ms; zero page errors, zero failed requests, zero unexplained console
+    198 ms; zero page errors, zero failed requests, zero unexplained console
     errors.
   - `npm run demo` no longer lists the Playwright/browser gap — the product
     reporting, about itself, that the defect is closed.
   - Port note, kept because it is the guard working: 4310 was held by an
     unrelated local server, the probe refused, and the run was repeated with
     `--port 4311`, which the receipt records.
+  - **Re-run from a fresh clone of the pushed commit**, which is the half the
+    gate actually asks for: `git clone --depth 1 && npm ci && npx playwright
+    install chromium && npm run build && node scripts/browser-proof.mjs --port
+    4312` → PASS, exit 0. The nine PNGs re-rendered with no diff; `receipt.json`
+    differed on six lines, all of them run metadata (timestamp, port, three
+    timings). Every asserted field — `pass`, `failures`, the `layout` table,
+    `journeys`, the console classification, `openDefects` — came back identical.
 
 - **Tests:** `npm test` → 27 files, 149 tests, 0 failed, exit 0 (baseline 26 /
   145). `npm run build` exit 0. `node dist/cli.js gate` → PASSED, exit 0.
   The four new tests were **confirmed failing on the pre-fix tree** by stashing
   the change and re-running them — see the iteration evidence file for the
   output.
+
+  Honest caveat: **one of six runs of the suite failed with 1 test failing, and
+  I did not capture which one.** It was the first run in a fresh clone, took
+  45 s against a normal 18 s, and did not reproduce in the five runs after it
+  (two in-tree, three more in the fresh clone), all 149/149. The four new tests
+  read committed files and parse JSON with no timing or ordering dependency, so
+  they are not plausible candidates; the suite does contain gate and runner
+  tests that assert on elapsed milliseconds. Recorded as an **unidentified
+  pre-existing flake under machine contention**, not claimed as fixed, not
+  claimed as innocent.
 
 - **Conditions newly PASS:** 1, 3, 4, 9, 10. Scorecard 1/12 → 6/12.
 
