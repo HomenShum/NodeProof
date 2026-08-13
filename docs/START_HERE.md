@@ -37,7 +37,7 @@ node dist/cli.js gate   # runs this repo's own gate against itself
 node dist/cli.js help   # every command, one line each
 ```
 
-`npm test` should print `Test Files 28 passed (28)` / `Tests 198 passed (198)`.
+`npm test` should print `Test Files 28 passed (28)` / `Tests 260 passed (260)`.
 If it does, the walkthrough below describes code that works on your machine.
 (Measured on a fresh clone of this commit; if your counts are higher, someone
 has added tests since — that is fine, a lower count is not.)

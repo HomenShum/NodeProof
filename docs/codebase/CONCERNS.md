@@ -30,9 +30,9 @@ API — the enum is the machine contract and `tests/hostedApi.test.ts` asserts i
 **Severity: major.** `document.querySelector('[data-intake-status]').outerHTML`
 returns `<p class="status" data-intake-status hidden></p>` — no `role="status"`,
 no `aria-live`. Every message the page produces (success, blocked, GitHub auth)
-is silent to a screen reader. Compounding it, success (`#e59579`) and blocked
-(`#ffb199`) in `public/styles.css:163-170` are two warm oranges distinguished by
-colour alone — no icon, no text prefix.
+is silent to a screen reader. Compounding it, queued/github (`public/styles.css:165`,
+`var(--accent-hover)` = `#e59579`) and blocked (`public/styles.css:169`, `#ffb199`)
+are two warm oranges distinguished by colour alone — no icon, no text prefix.
 
 **Fix shape:** `role="status" aria-live="polite"` on the element, plus a
 non-colour distinction. Both are in `public/index.html` / `public/styles.css`.
@@ -45,9 +45,8 @@ Three properties at once. `api/hosted/_shared.js:2` and
 `scripts/hosted-worker.mjs:11` `require()` the compiled `dist/`, so it is not
 merely a build artefact.
 
-**The cost, concretely:** `dist/` is 60 of the repository's 215 tracked files,
-and with no `knip.json` every one of them is reported unused. It can drift from
-`src/` with nothing detecting it. On Windows, a rebuild marks all 60 modified in
+**The cost, concretely:** `dist/` is 60 of the repository's 215 tracked files.
+It can drift from `src/` with nothing detecting it. On Windows, a rebuild marks all 60 modified in
 `git status` while `git diff` shows no content change — line-ending churn that
 buries the real diff.
 
@@ -71,7 +70,7 @@ imports the package rather than running the CLI.
 
 ### `maturity` scores a capability `met` from a filename
 
-`src/maturity.ts:270` marks `live_browser_verification` as `met` when
+`src/maturity.ts:281` marks `live_browser_verification` as `met` when
 `scripts/hosted-worker.mjs` merely *exists*. It read `met` at a commit where
 nothing in the repository could open a browser. The check matches a path, not a
 runnable path. Recorded in `promotion/PROMOTION_LOG.md` and in the module's own

@@ -90,8 +90,8 @@ That pattern is everywhere in `src/cli.ts`. It exists because
 The convention is unusual and worth keeping: **a comment explains a decision or
 a hazard, never the syntax.** The best examples are the file headers of
 `src/proofloopHooks.ts` and `src/proofloopToolUse.ts`, which list the properties
-that must not regress, and the `DEFAULT_GATE_COMMAND` block
-(`src/proofloopHooks.ts:50-60`), which explains why the default is *not* the
+that must not regress, and the comment above `DEFAULT_GATE_COMMAND`
+(`src/proofloopHooks.ts:60`), which explains why the default is *not* the
 obvious choice.
 
 If you add a module, add a header saying who uses it and what would go wrong

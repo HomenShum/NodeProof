@@ -7,55 +7,64 @@
       "file": "src/cli.ts",
       "line": 185,
       "title": "Entry",
-      "description": "Everything starts here. One switch on the first argument — no router, no plugin registry. `dist/cli.js` is the compiled form of this file and is what `package.json` → `bin.proofloop` points at.\n\nNote `root`: every command operates on a repo directory, defaulting to the current one, overridable with `--dir`."
+      "description": "Everything starts here. One switch on the first argument — no router, no plugin registry. `dist/cli.js` is the compiled form of this file and is what `package.json` → `bin.proofloop` points at.\n\nNote `root`: every command operates on a repo directory, defaulting to the current one, overridable with `--dir`.",
+      "pattern": "^\\s*export function runCli\\(argv: string\\[\\]\\): number \\| Promise<number> \\{\\s*$"
     },
     {
       "file": "src/cli.ts",
       "line": 210,
       "title": "The command we are following",
-      "description": "`proofloop gate` — the primary user action. `--check` means 'read the last verdict, run nothing', which is the mode the Stop hook uses."
+      "description": "`proofloop gate` — the primary user action. `--check` means 'read the last verdict, run nothing', which is the mode the Stop hook uses.",
+      "pattern": "^\\s*case \"gate\":\\s*$"
     },
     {
       "file": "src/gate.ts",
       "line": 169,
       "title": "The gate, in two modes",
-      "description": "Check mode reads the persisted verdict and exits on it. If there is no verdict at all it returns 2 — **fail-closed**. 'Nobody has run the gate yet' must never read as 'the gate passed'."
+      "description": "Check mode reads the persisted verdict and exits on it. If there is no verdict at all it returns 2 — **fail-closed**. 'Nobody has run the gate yet' must never read as 'the gate passed'.",
+      "pattern": "^\\s*export function runGateCli\\(options: \\{ root: string; check\\?: boolean \\} & GateCliIo\\): 0 \\| 1 \\| 2 \\{\\s*$"
     },
     {
       "file": "src/gate.ts",
       "line": 113,
       "title": "Run mode: deciding what counts as proof",
-      "description": "Three sources, in priority order: the checks a human configured; otherwise `npm test` if package.json declares one; otherwise nothing, which is status `no_gate` and exit 2. The chosen source is recorded in the receipt so a reader can tell a real gate from a fallback."
+      "description": "Three sources, in priority order: the checks a human configured; otherwise `npm test` if package.json declares one; otherwise nothing, which is status `no_gate` and exit 2. The chosen source is recorded in the receipt so a reader can tell a real gate from a fallback.",
+      "pattern": "^\\s*export function runGate\\(options: \\{ root: string \\} & GateCliIo\\): GateState \\{\\s*$"
     },
     {
       "file": "src/config.ts",
       "line": 63,
       "title": "Where untrusted JSON becomes typed data",
-      "description": "The only place `proofloop.config.json` is interpreted. A check with a blank command is dropped rather than run; every field gets a default so no caller downstream has to test for `undefined`.\n\nMissing file → `undefined` (fall back to npm test). Unparseable file → throws, on purpose: a gate run against a broken config would prove nothing while looking green."
+      "description": "The only place `proofloop.config.json` is interpreted. A check with a blank command is dropped rather than run; every field gets a default so no caller downstream has to test for `undefined`.\n\nMissing file → `undefined` (fall back to npm test). Unparseable file → throws, on purpose: a gate run against a broken config would prove nothing while looking green.",
+      "pattern": "^\\s*export function normalizeConfig\\(value: unknown\\): ProofloopConfig \\{\\s*$"
     },
     {
       "file": "src/gate.ts",
       "line": 92,
       "title": "Running a check",
-      "description": "`stdio: \"inherit\"` is the whole rendering story — your test runner's output goes straight to your terminal, live and unedited. Only the summary is formatted by this tool.\n\nA hung check is killed at the 30-minute timeout and recorded as a failure with `exitCode: null`."
+      "description": "`stdio: \"inherit\"` is the whole rendering story — your test runner's output goes straight to your terminal, live and unedited. Only the summary is formatted by this tool.\n\nA hung check is killed at the 30-minute timeout and recorded as a failure with `exitCode: null`.",
+      "pattern": "^\\s*function runCommand\\(root: string, command: string\\): \\{ pass: boolean; ms: number; exitCode: number \\| null \\} \\{\\s*$"
     },
     {
       "file": "src/gate.ts",
       "line": 155,
       "title": "The receipt",
-      "description": "This object is the product. It is written to `.proofloop/gate-state.json` and is what makes the verdict survive the session: the Stop hook reads it, `proofloop resume` reads it, and a human can open it in an editor."
+      "description": "This object is the product. It is written to `.proofloop/gate-state.json` and is what makes the verdict survive the session: the Stop hook reads it, `proofloop resume` reads it, and a human can open it in an editor.",
+      "pattern": "^\\s*const state: GateState = \\{\\s*$"
     },
     {
       "file": "src/gate.ts",
       "line": 53,
       "title": "One place that maps status to exit code",
-      "description": "0 passed, 1 failed, 2 unusable. Every caller — CLI, hook, agent loop — goes through this function, so the three exit codes cannot drift apart."
+      "description": "0 passed, 1 failed, 2 unusable. Every caller — CLI, hook, agent loop — goes through this function, so the three exit codes cannot drift apart.",
+      "pattern": "^\\s*export function statusToExit\\(status: GateStatus\\): 0 \\| 1 \\| 2 \\{\\s*$"
     },
     {
       "file": "tests/gate.test.ts",
       "line": 88,
       "title": "The tests that hold this in place",
-      "description": "Five cases: all checks pass, one check fails, the npm-test fallback, `no_gate` when nothing is configured, and `--check` reading the last verdict without re-running. Change the gate and these are the tests that should fail first."
+      "description": "Five cases: all checks pass, one check fails, the npm-test fallback, `no_gate` when nothing is configured, and `--check` reading the last verdict without re-running. Change the gate and these are the tests that should fail first.",
+      "pattern": "^\\s*describe\\(\"proofloop gate\", \\(\\) => \\{\\s*$"
     }
   ]
 }

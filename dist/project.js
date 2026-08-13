@@ -16,6 +16,17 @@ exports.listProofloopWorkflows = listProofloopWorkflows;
 exports.buildResume = buildResume;
 exports.buildReport = buildReport;
 exports.writeProofloopCharts = writeProofloopCharts;
+/**
+ * Everything `proofloop` knows about a repository as a PROJECT, as opposed to a
+ * single gate run: the compact manifest an agent reads to orient itself, the
+ * agent instruction docs written by `proofloop init`, the starter templates,
+ * the discovered UI test-id contracts, the human-readable report, and
+ * `buildResume` -- the "what should I do next" line a cold session reads off the
+ * last gate receipt.
+ *
+ * Nothing here decides whether the gate passes. This module reads and writes
+ * the surrounding paperwork; `gate.ts` owns the verdict.
+ */
 const node_fs_1 = require("node:fs");
 const node_path_1 = require("node:path");
 const config_1 = require("./config");

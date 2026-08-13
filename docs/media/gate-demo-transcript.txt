@@ -1,7 +1,7 @@
 $ ls   # throwaway project; the agent just claimed “done”
 app.js  package.json  test.js
 
-$ npx proofloop init
+$ node dist/cli.js init
 proofloop init: detected generic web app (no framework markers detected).
 proofloop init: wrote ~/tiny-app\proofloop.config.json
 proofloop init: package scripts updated in ~/tiny-app\package.json.
@@ -16,20 +16,20 @@ Next steps:
   4. `proofloop hooks install` to make your agent refuse fake "done".
   5. `proofloop resume --dense` shows the next action when the loop stops.
 
-$ npx proofloop gate   # the gate decides whether “done” is true
+$ node dist/cli.js gate   # the gate decides whether “done” is true
 proofloop gate: no checks configured; falling back to `npm test` (package.json has a test script).
 proofloop gate: running check "npm test" -> npm test
 
 > tiny-app@1.0.0 test
 > node test.js
 
-proofloop gate: check "npm test" FAILED (2288ms, exit 1)
+proofloop gate: check "npm test" FAILED (883ms, exit 1)
 proofloop gate: FAILED
   state: ~/tiny-app\.proofloop\gate-state.json
-  ts:    2026-08-12T21:59:07.897Z
+  ts:    2026-08-13T20:48:03.128Z
   source: npm-test-fallback
   checks:
-    - [FAIL] npm test (2288ms)
+    - [FAIL] npm test (883ms)
 
 node:assert:150
   throw new AssertionError(obj);
@@ -62,7 +62,7 @@ $ # one-line fix in app.js:
 -module.exports = { add: (a, b) => a - b };
 +module.exports = { add: (a, b) => a + b };
 
-$ npx proofloop gate
+$ node dist/cli.js gate
 proofloop gate: no checks configured; falling back to `npm test` (package.json has a test script).
 proofloop gate: running check "npm test" -> npm test
 
@@ -70,11 +70,11 @@ proofloop gate: running check "npm test" -> npm test
 > node test.js
 
 test ok: add(2,3)=5
-proofloop gate: check "npm test" PASSED (1405ms, exit 0)
+proofloop gate: check "npm test" PASSED (666ms, exit 0)
 proofloop gate: PASSED
   state: ~/tiny-app\.proofloop\gate-state.json
-  ts:    2026-08-12T21:59:14.764Z
+  ts:    2026-08-13T20:48:03.934Z
   source: npm-test-fallback
   checks:
-    - [pass] npm test (1405ms)
+    - [pass] npm test (666ms)
 

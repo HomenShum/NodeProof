@@ -7,11 +7,27 @@ true: it runs a gate against your app, refuses false completion, captures which 
 actually called, and keeps proof state the agent cannot quietly weaken. One prompt starts the loop;
 the gate decides when it is actually done.
 
-![npx proofloop init then gate in a throwaway project: the gate FAILS (exit 1) while add() is wrong, and PASSES (exit 0) only after the one-line fix](docs/media/gate-demo.gif)
+## Run it first — 4 commands, no accounts, no keys
 
-*Scripted terminal session, replayed frame-by-frame — every output line is verbatim captured stdout from real `npx proofloop` runs in a throwaway project (only the temp path is shortened; full transcript: [`docs/media/gate-demo-transcript.txt`](docs/media/gate-demo-transcript.txt)). Regenerate: `node scripts/record-gate-demo.mjs`.*
+```bash
+npm install             # 51 packages, no runtime dependencies
+npm test                # its pretest runs `npm run build` (tsc) first
+node dist/cli.js gate   # runs this repo's own gate against itself
+node dist/cli.js help   # every command, one line each
+```
 
-The CLI remains `npx proofloop` for package compatibility.
+`npm test` should print `Test Files 28 passed (28)` / `Tests 260 passed (260)`.
+
+**Inside this clone the command is `node dist/cli.js`, never `npx proofloop`.**
+`npx proofloop` resolves the *published* package — or whatever `proofloop`
+happens to already be on your PATH — and never the code you just cloned, so it
+looks like it worked while proving nothing about this commit. Every command
+below runs the working tree. If you installed NodeProof from npm instead of
+cloning it, read every `node dist/cli.js` below as `npx proofloop`.
+
+![node dist/cli.js init then gate in a throwaway project: the gate FAILS (exit 1) while add() is wrong, and PASSES (exit 0) only after the one-line fix](docs/media/gate-demo.gif)
+
+*Scripted terminal session, replayed frame-by-frame — every output line is verbatim captured stdout from real `node dist/cli.js` runs of this working tree in a throwaway project (only the temp path is shortened; full transcript: [`docs/media/gate-demo-transcript.txt`](docs/media/gate-demo-transcript.txt)). Regenerate: `node scripts/record-gate-demo.mjs`.*
 
 Zero runtime dependencies. Node >= 20. Works on any repo.
 
@@ -28,20 +44,20 @@ Zero runtime dependencies. Node >= 20. Works on any repo.
 Codex and Claude Code can install local hook enforcement; other hosts are represented as adapter receipts until a launch, trace-capture, and gate-enforcement surface exists:
 
 ```bash
-npx proofloop agents list
-npx proofloop agents setup codex --local
-npx proofloop agents setup claude-code --local
-npx proofloop codex-loop --dry-run
+node dist/cli.js agents list
+node dist/cli.js agents setup codex --local
+node dist/cli.js agents setup claude-code --local
+node dist/cli.js codex-loop --dry-run
 ```
 
 Solo Founder Agent Builder can supply the self-directing RALPH workflow while NodeProof remains the
 independent gate:
 
 ```bash
-npx proofloop solo setup --source ../solo-founder-agent-builder --agent both --install-deps --verify
+node dist/cli.js solo setup --source ../solo-founder-agent-builder --agent both --install-deps --verify
 npm run sfn -- proofloop export --project . --out .solo/proofloop-interop.json --program-id my-program --goal-id my-goal --actor me --role owner --agent-host codex --tier local_ready --boundary product_path
-npx proofloop solo ingest --file .solo/proofloop-interop.json --write-runner-plan
-npx proofloop solo gate
+node dist/cli.js solo ingest --file .solo/proofloop-interop.json --write-runner-plan
+node dist/cli.js solo gate
 ```
 
 The Solo verdict is advisory. Team and certification claims require independent receipts. See
@@ -51,7 +67,7 @@ signed artifact re-export, and public-repository privacy rules.
 Provider setup receipts cover Butterbase, Neo4j, RocketRide, Daytona, Cognee, and Nebius without treating missing credentials as success:
 
 ```bash
-npx proofloop providers setup all
+node dist/cli.js providers setup all
 ```
 
 See `docs/interoperability.md` and `docs/local-bench-setup.md` for LangChain/LangSmith/Harbor boundaries and local Finch, FinAuditing, and WorkstreamBench setup recipes.
@@ -69,11 +85,11 @@ labeled separately. It does not collect tokens or repository credentials in the 
 The portable CLI now includes the local intake layer that service uses first:
 
 ```bash
-npx proofloop hosted intake --url https://your-app.example --app-type agent-app --budget-usd 10 --consent
-npx proofloop hosted run --request .proofloop/hosted/queue/<run-id>.json
-npx proofloop target --url https://your-app.example --write-runner-plan
-npx proofloop target --url https://your-app.example --write-browser-smoke --write-runner-plan
-npx proofloop target --dir . --write-runner-plan
+node dist/cli.js hosted intake --url https://your-app.example --app-type agent-app --budget-usd 10 --consent
+node dist/cli.js hosted run --request .proofloop/hosted/queue/<run-id>.json
+node dist/cli.js target --url https://your-app.example --write-runner-plan
+node dist/cli.js target --url https://your-app.example --write-browser-smoke --write-runner-plan
+node dist/cli.js target --dir . --write-runner-plan
 ```
 
 `hosted intake` creates the service packet: target URL, app type, auth/session notes, model budget,
@@ -117,8 +133,8 @@ ProofLoop can also judge where a repo or app sits in the agent era and report wh
 it can honestly claim a higher level of autonomy, benchmark readiness, or hosted proof coverage:
 
 ```bash
-npx proofloop maturity --dense
-npx proofloop maturity --target-level 5 --write
+node dist/cli.js maturity --dense
+node dist/cli.js maturity --target-level 5 --write
 ```
 
 `maturity` scans local evidence such as gate checks, CI, agent instructions, protected proof state,
@@ -185,7 +201,7 @@ Verified Productivity =
 The command is local and deterministic:
 
 ```bash
-npx proofloop productivity \
+node dist/cli.js productivity \
   --write \
   --baseline-source benchmark \
   --dev-hours 3 \
@@ -240,23 +256,23 @@ context, not guaranteed customer ROI.
 ## Quickstart
 
 ```bash
-npx proofloop init --agent auto --live  # config + manifest + agent docs + scripts + live scaffold
-npx proofloop doctor --json             # setup checks and fix commands
-npx proofloop manifest --dense          # compact repo status for agents
-npx proofloop ui contract --dense       # stable selectors/actions/assertions
-npx proofloop target --write-runner-plan # benchmark plan + context report + runner discovery
-npx proofloop maturity --target-level 5 --write # maturity report + missing layers
-npx proofloop productivity --write --baseline-source benchmark # verified productivity pack
-npx proofloop prompt                    # kickoff prompt to paste into your coding agent
-npx proofloop this-repo --goal "proofloop my latest updates" --write-runner-plan
-npx proofloop runner run --plan proofloop.runner.json --budget-usd 100
-npx proofloop gate                      # run checks -> .proofloop/gate-state.json
+node dist/cli.js init --agent auto --live  # config + manifest + agent docs + scripts + live scaffold
+node dist/cli.js doctor --json             # setup checks and fix commands
+node dist/cli.js manifest --dense          # compact repo status for agents
+node dist/cli.js ui contract --dense       # stable selectors/actions/assertions
+node dist/cli.js target --write-runner-plan # benchmark plan + context report + runner discovery
+node dist/cli.js maturity --target-level 5 --write # maturity report + missing layers
+node dist/cli.js productivity --write --baseline-source benchmark # verified productivity pack
+node dist/cli.js prompt                    # kickoff prompt to paste into your coding agent
+node dist/cli.js this-repo --goal "proofloop my latest updates" --write-runner-plan
+node dist/cli.js runner run --plan proofloop.runner.json --budget-usd 100
+node dist/cli.js gate                      # run checks -> .proofloop/gate-state.json
 ```
 
 Then make "done" honest for a Claude Code session:
 
 ```bash
-npx proofloop hooks install
+node dist/cli.js hooks install
 ```
 
 This installs a Stop hook that refuses to let the agent stop while the gate is failing, a PreToolUse
@@ -268,7 +284,7 @@ a protected path: the gate definition is not the agent's to move.
 
 ## Agent-Friendly Setup
 
-`npx proofloop init --agent auto --live` follows the Astryx-style setup pattern:
+`node dist/cli.js init --agent auto --live` follows the Astryx-style setup pattern:
 
 - Writes `proofloop.config.json` if missing.
 - Writes `.proofloop/manifest.json` with stack, commands, proof gates, workflows, UI contracts, and blockers.
@@ -276,7 +292,7 @@ a protected path: the gate definition is not the agent's to move.
 - Adds package aliases such as `proofloop:init`, `proofloop:gate`, `proofloop:resume`, and `proofloop:charts`.
 - Creates live workflow/rubric starters under `proofloop/workflows/` and `proofloop/rubrics/`.
 
-The CLI stays primary. `npx proofloop mcp` exposes the same compact read-only surfaces to MCP clients
+The CLI stays primary. `node dist/cli.js mcp` exposes the same compact read-only surfaces to MCP clients
 without loading broad repo context.
 
 ProofLoop also ships an Agent OS markdown pack under `docs/agent-os/`. It adapts the Room OS
@@ -288,7 +304,7 @@ For a non-technical kickoff, tell Claude/Codex: "proofloop my latest repo" or
 "proofloop my latest updates." The agent-facing command is:
 
 ```bash
-npx proofloop this-repo --goal "proofloop my latest updates" --write-runner-plan
+node dist/cli.js this-repo --goal "proofloop my latest updates" --write-runner-plan
 ```
 
 That writes `.proofloop/runner/latest-updates.plan.json` in two layers:
@@ -303,7 +319,7 @@ Browser verification is not forced through every capability task. Use the local 
 you want the CLI to execute the plan with append-only state, budget control, and resume:
 
 ```bash
-npx proofloop this-repo --goal "proofloop my latest updates" --write-runner-plan --run --budget-usd 100
+node dist/cli.js this-repo --goal "proofloop my latest updates" --write-runner-plan --run --budget-usd 100
 ```
 
 ## How The Stop Gate Decides
@@ -406,10 +422,10 @@ If your agent takes real actions through tools such as Composio, MCP, or functio
 assert it called required tools and never called forbidden ones:
 
 ```bash
-npx proofloop tooluse init --template composio-email-triage
-npx proofloop hooks install
+node dist/cli.js tooluse init --template composio-email-triage
+node dist/cli.js hooks install
 # run your agent
-npx proofloop tooluse verify --contract tooluse-contract.json
+node dist/cli.js tooluse verify --contract tooluse-contract.json
 ```
 
 The verifier is fail-closed: a deny-list cannot be certified from an empty or missing log, and
@@ -422,7 +438,7 @@ NodeRoom's two-pool document ingestion runner:
 
 ```bash
 npm run nodeagent:ingestion:smoke
-npx proofloop receipt verify \
+node dist/cli.js receipt verify \
   --file docs/eval/nodeagent-ingestion-orchestrator.json \
   --kind nodeagent-ingestion \
   --min-documents 1 \

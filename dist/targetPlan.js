@@ -5,6 +5,17 @@ exports.writeProofloopTargetPlan = writeProofloopTargetPlan;
 exports.buildProofloopTargetPlan = buildProofloopTargetPlan;
 exports.classifyBenchmarkFamilies = classifyBenchmarkFamilies;
 exports.formatProofloopTargetPlanDense = formatProofloopTargetPlanDense;
+/**
+ * `proofloop target [--url ...]` -- given a repository or a live URL, recommend
+ * WHICH families of proof are worth running against it (a static marketing page
+ * and an agent app do not deserve the same suite), and optionally write a runner
+ * plan and a context report so an agent can start immediately.
+ *
+ * The recommendation is a classification, not a measurement: it says what to
+ * probe, and `gate.ts` / the runner produce the numbers. Fetching a URL is
+ * best-effort and bounded by `--timeout-ms`; an unreachable target degrades to a
+ * repository-only plan rather than failing the command.
+ */
 const node_fs_1 = require("node:fs");
 const node_path_1 = require("node:path");
 const contextReport_1 = require("./contextReport");

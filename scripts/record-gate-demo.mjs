@@ -3,12 +3,15 @@
  * Record the gate demo honestly: a scripted terminal session, not a staged one.
  *
  * The script builds a throwaway node project whose "done" is a lie (add()
- * subtracts), then actually runs:
+ * subtracts), then actually runs THIS WORKING TREE's build:
  *
- *     npx proofloop init
- *     npx proofloop gate      -> must FAIL (exit 1) or this script aborts
+ *     node <repo>/dist/cli.js init
+ *     node <repo>/dist/cli.js gate   -> must FAIL (exit 1) or this script aborts
  *     (one-line fix to app.js)
- *     npx proofloop gate      -> must PASS (exit 0) or this script aborts
+ *     node <repo>/dist/cli.js gate   -> must PASS (exit 0) or this script aborts
+ *
+ * Not `npx proofloop`: npx resolves the PUBLISHED package, so a clip recorded
+ * that way would prove someone else's build, not the commit it ships beside.
  *
  * Every output line in the clip is verbatim captured stdout/stderr from those
  * real runs; the only edit is shortening the throwaway project's absolute
@@ -58,14 +61,15 @@ function run(cmd) {
   const r = spawnSync(cmd, { cwd: fixture, shell: true, encoding: "utf8" });
   return { cmd, out: (r.stdout ?? "") + (r.stderr ?? ""), code: r.status };
 }
-const init = run("npx --yes proofloop init");
-const gateFail = run("npx --yes proofloop gate");
+const CLI = `node "${path.join(ROOT, "dist/cli.js")}"`;
+const init = run(`${CLI} init`);
+const gateFail = run(`${CLI} gate`);
 if (gateFail.code !== 1) {
   console.error(`expected the gate to REFUSE (exit 1), got exit ${gateFail.code}:\n${gateFail.out}`);
   process.exit(1);
 }
 await fs.writeFile(path.join(fixture, "app.js"), FIXED);
-const gatePass = run("npx --yes proofloop gate");
+const gatePass = run(`${CLI} gate`);
 if (gatePass.code !== 0) {
   console.error(`expected the gate to PASS (exit 0), got exit ${gatePass.code}:\n${gatePass.out}`);
   process.exit(1);
@@ -75,7 +79,7 @@ if (gatePass.code !== 0) {
 const shorten = (s) => s.split(fixture.replace(/\//g, "\\")).join("~/tiny-app").split(fixture).join("~/tiny-app");
 const lines = [];
 const push = (seg, note) => {
-  lines.push({ t: "cmd", s: `$ ${seg.cmd.replace("npx --yes", "npx")}${note ? "   # " + note : ""}` });
+  lines.push({ t: "cmd", s: `$ ${seg.cmd.split(CLI).join("node dist/cli.js")}${note ? "   # " + note : ""}` });
   for (const l of shorten(seg.out).replace(/\r/g, "").trimEnd().split("\n")) lines.push({ t: "out", s: l });
   lines.push({ t: "out", s: "" });
 };

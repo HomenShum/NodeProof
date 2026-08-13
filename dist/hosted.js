@@ -15,6 +15,21 @@ exports.writeHostedRunBundle = writeHostedRunBundle;
 exports.renderHostedRunbook = renderHostedRunbook;
 exports.renderHostedDashboardHtml = renderHostedDashboardHtml;
 exports.readHostedRunBundle = readHostedRunBundle;
+/**
+ * The hosted lane: someone hands ProofLoop a URL they do not run themselves and
+ * asks for a proof run against it.
+ *
+ * Pointing browser automation at an arbitrary stranger's site is the abuse this
+ * module exists to prevent. `verifyHostedDomainPermission` decides whether the
+ * requester has demonstrated control of the host -- an allowlist entry, a
+ * `.well-known` file, or a DNS TXT record -- and `validateHostedRunRequest`
+ * collects every blocker before anything is queued. Unverified is REFUSED with
+ * the exact token to publish, never queued-and-hoped.
+ *
+ * Everything here is pure: it builds and validates request bundles. The network
+ * checks live in `api/hosted/_shared.js`, and dispatch is a GitHub Actions
+ * `workflow_dispatch` (`.github/workflows/hosted-proofloop.yml`).
+ */
 const node_fs_1 = require("node:fs");
 const node_path_1 = require("node:path");
 const targetPlan_1 = require("./targetPlan");

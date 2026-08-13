@@ -7,55 +7,64 @@
       "file": "src/cli.ts",
       "line": 958,
       "title": "Entry: proofloop hooks install",
-      "description": "Writes three scripts into `.proofloop/hooks/` and registers them in the assistant's own settings file. Idempotent: re-running reports `(already present)` rather than duplicating entries."
+      "description": "Writes three scripts into `.proofloop/hooks/` and registers them in the assistant's own settings file. Idempotent: re-running reports `(already present)` rather than duplicating entries.",
+      "pattern": "^\\s*function runHooksCommand\\(sub: string \\| undefined, options: Record<string, string \\| boolean>, root: string\\): number \\{\\s*$"
     },
     {
       "file": "src/proofloopHooks.ts",
       "line": 1,
       "title": "What was ported, and what must not regress",
-      "description": "This module came from a working implementation, and the header lists the security semantics that were preserved. Read it before editing: deep-merge that does not clobber a user's own hooks, a per-session block counter, a guard that blocks edits to protected paths using pure string checks that cannot fail open, and a fail-open logger paired with a fail-closed verifier."
+      "description": "This module came from a working implementation, and the header lists the security semantics that were preserved. Read it before editing: deep-merge that does not clobber a user's own hooks, a per-session block counter, a guard that blocks edits to protected paths using pure string checks that cannot fail open, and a fail-open logger paired with a fail-closed verifier.",
+      "pattern": "^\\s*/\\*\\*\\s*$"
     },
     {
       "file": "src/proofloopHooks.ts",
       "line": 60,
       "title": "Why the default gate command is check-only",
-      "description": "The comment above `DEFAULT_GATE_COMMAND` is the design decision in full: a Stop hook must be deterministic and offline-safe, so the default reads the persisted verdict instead of shelling out to `npx`, which would make the stop verdict depend on the npm registry and the network."
+      "description": "The comment above `DEFAULT_GATE_COMMAND` is the design decision in full: a Stop hook must be deterministic and offline-safe, so the default reads the persisted verdict instead of shelling out to `npx`, which would make the stop verdict depend on the npm registry and the network.",
+      "pattern": "^\\s*export const DEFAULT_GATE_COMMAND = \"npx proofloop gate --check\";\\s*$"
     },
     {
       "file": "src/proofloopHooks.ts",
       "line": 504,
       "title": "The generated hook script",
-      "description": "`stopGateScript` returns the text of `.proofloop/hooks/stop-gate.mjs`. It is generated rather than shipped so it can carry an install-time snapshot of the config, and it imports nothing from this project — plain Node — so it keeps working after the package is uninstalled.\n\nThe docblock states the assumed Stop-hook contract and tells you to re-verify it against the current hooks documentation. That is the honest way to depend on someone else's protocol."
+      "description": "`stopGateScript` returns the text of `.proofloop/hooks/stop-gate.mjs`. It is generated rather than shipped so it can carry an install-time snapshot of the config, and it imports nothing from this project — plain Node — so it keeps working after the package is uninstalled.\n\nThe docblock states the assumed Stop-hook contract and tells you to re-verify it against the current hooks documentation. That is the honest way to depend on someone else's protocol.",
+      "pattern": "^\\s*function stopGateScript\\(config: ProofloopHooksConfig\\): string \\{\\s*$"
     },
     {
       "file": "src/proofloopHooks.ts",
       "line": 653,
       "title": "Loop protection comes first",
-      "description": "Before any gate check: if this session has already been blocked `maxStopBlocks` times (default 5), allow the stop and say plainly on stderr that the gate is still failing. A supervisor that can trap a session forever gets uninstalled by lunchtime.\n\nRead the next twenty lines for the other two properties: fail **open** when no gate is configured or no verdict exists yet, and fail **closed** on an actual `failed` verdict."
+      "description": "Before any gate check: if this session has already been blocked `maxStopBlocks` times (default 5), allow the stop and say plainly on stderr that the gate is still failing. A supervisor that can trap a session forever gets uninstalled by lunchtime.\n\nRead the next twenty lines for the other two properties: fail **open** when no gate is configured or no verdict exists yet, and fail **closed** on an actual `failed` verdict.",
+      "pattern": "^\\s*// Loop protection FIRST: never block forever\\.\\s*$"
     },
     {
       "file": "src/proofloopHooks.ts",
       "line": 693,
       "title": "The refusal itself",
-      "description": "`{\"decision\":\"block\",\"reason\":...}` on stdout is what sends the assistant back to work, and the reason carries the first three failing checks plus the block count, so the agent knows both what to fix and how much rope is left."
+      "description": "`{\"decision\":\"block\",\"reason\":...}` on stdout is what sends the assistant back to work, and the reason carries the first three failing checks plus the block count, so the agent knows both what to fix and how much rope is left.",
+      "pattern": "^\\s*console\\.log\\(JSON\\.stringify\\(\\{ decision: \"block\", reason \\}\\)\\);\\s*$"
     },
     {
       "file": "src/project.ts",
       "line": 518,
       "title": "Recovery: resuming cold",
-      "description": "`proofloop resume --dense` reads the same `.proofloop/gate-state.json` and prints the next action. This is the surface for a *new* session with no memory of the last one — a different assistant, or the same one after a crash."
+      "description": "`proofloop resume --dense` reads the same `.proofloop/gate-state.json` and prints the next action. This is the surface for a *new* session with no memory of the last one — a different assistant, or the same one after a crash.",
+      "pattern": "^\\s*export function buildResume\\(root: string\\): \\{ dense: string; json: Record<string, unknown> \\} \\{\\s*$"
     },
     {
       "file": "promotion/PROMOTION_LOG.md",
       "line": 64,
       "title": "The open defect ledger",
-      "description": "Known, reproducible, user-visible defects with their reproductions, kept in git so the next reader inherits the honest list rather than a clean-looking one. D1 and D2 are open product defects on the landing page; D3 was closed by deleting dead code — see docs/SIMPLIFICATION_REPORT.md."
+      "description": "Known, reproducible, user-visible defects with their reproductions, kept in git so the next reader inherits the honest list rather than a clean-looking one. D1 and D2 are open product defects on the landing page; D3 was closed by deleting dead code — see docs/SIMPLIFICATION_REPORT.md.",
+      "pattern": "^\\s*\\| D1 \\| Major \\| J5 \\| Load `/` at any width \\(verified at 386 px and 2560 px\\)\\. Type `https://example\\.com` into `\\[data-testid=\"target-input\"\\]`, click `\\[data-testid=\"target-submit\"\\]`\\. The status line renders the single lowercase word \\*\\*`blocked`\\*\\* as its entire message, above a raw JSON dump\\. Cause: `public/app\\.js:127` passes `data\\.status` — a machine enum — straight into `setStatus\\(\\)` as user-facing copy\\. \\*\\*Corrected 2026-08-13:\\*\\* that enum is minted in `api/hosted/submit\\.js:35` \\(`status: \"blocked\"`; also `\"dispatch_failed\"` at :49, `\"queued\"` at :60\\), not in `api/hosted/_shared\\.js` as this row first said — `_shared\\.js` owns the nested `permission\\.status` that appears inside the JSON detail\\. Open `submit\\.js` for the enum, `app\\.js:127` for the copy\\. The refusal is correct and the JSON even contains the fix instructions; the sentence telling the user what happened is simply missing\\. This is the primary failure path of the page's main flow\\. \\| OPEN \\|\\s*$"
     },
     {
       "file": "scripts/browser-proof.mjs",
       "line": 1,
       "title": "Proving the page in a real browser",
-      "description": "`npm run proofloop:browser-proof` serves `public/`, mounts the repo's own `api/**` handlers with Vercel's routing rules, drives both landing-page journeys in Chromium, and writes `promotion/evidence/browser-proof/receipt.json` plus screenshots.\n\nIt binds an explicit port and exits 2 if that port is taken, rather than measuring somebody else's dev server."
+      "description": "`npm run proofloop:browser-proof` serves `public/`, mounts the repo's own `api/**` handlers with Vercel's routing rules, drives both landing-page journeys in Chromium, and writes `promotion/evidence/browser-proof/receipt.json` plus screenshots.\n\nIt binds an explicit port and exits 2 if that port is taken, rather than measuring somebody else's dev server.",
+      "pattern": "^\\s*#!/usr/bin/env node\\s*$"
     }
   ]
 }

@@ -6,6 +6,23 @@ exports.runnerRunDir = runnerRunDir;
 exports.runnerStatePath = runnerStatePath;
 exports.runnerLedgerPath = runnerLedgerPath;
 exports.formatRunnerStatus = formatRunnerStatus;
+/**
+ * `proofloop runner run|resume|status|report` -- a durable task runner.
+ *
+ * The situation: a long proof run (many checks, a spending budget) is
+ * interrupted -- the laptop sleeps, the agent crashes, someone hits Ctrl-C.
+ * Restarting from zero wastes money and time, and running the same plan twice
+ * at once corrupts the record.
+ *
+ * So every state change is APPENDED to a ledger file rather than overwriting
+ * state, one directory lock keeps two runs off the same plan (with a TTL so a
+ * dead process cannot hold it forever), a torn final ledger line left by a hard
+ * kill is repaired on the next start, and a task that was "running" when the
+ * process died is requeued. Spend is checked before each task; over budget is
+ * status `blocked_budget`, not a silent overspend.
+ *
+ * State lives in `.proofloop/runner/<run-id>/`.
+ */
 const node_child_process_1 = require("node:child_process");
 const node_crypto_1 = require("node:crypto");
 const node_fs_1 = require("node:fs");

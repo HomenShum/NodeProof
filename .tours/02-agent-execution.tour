@@ -7,55 +7,64 @@
       "file": "src/cli.ts",
       "line": 499,
       "title": "Entry: proofloop codex-loop",
-      "description": "Parses `--agent`, `--dry-run`, `--max-attempts`, `--run-id` and hands off. Errors here return exit 2 rather than throwing — a supervisor that crashes is worse than one that reports."
+      "description": "Parses `--agent`, `--dry-run`, `--max-attempts`, `--run-id` and hands off. Errors here return exit 2 rather than throwing — a supervisor that crashes is worse than one that reports.",
+      "pattern": "^\\s*async function runCodexLoopCommand\\(options: Record<string, string \\| boolean>, root: string\\): Promise<number> \\{\\s*$"
     },
     {
       "file": "src/agentLoop.ts",
       "line": 40,
       "title": "The loop",
-      "description": "Run the gate. If it passed, return immediately. If it failed, turn the failure into a repair prompt and hand it to the coding agent, up to `maxAttempts` (default 1 — this does not spin by default).\n\nEvery attempt leaves `gate-attempt-N.json` in `.proofloop/runs/<run-id>/`, so what the loop saw is auditable after the fact."
+      "description": "Run the gate. If it passed, return immediately. If it failed, turn the failure into a repair prompt and hand it to the coding agent, up to `maxAttempts` (default 1 — this does not spin by default).\n\nEvery attempt leaves `gate-attempt-N.json` in `.proofloop/runs/<run-id>/`, so what the loop saw is auditable after the fact.",
+      "pattern": "^\\s*for \\(let attempt = 1; attempt <= maxAttempts; attempt\\+\\+\\) \\{\\s*$"
     },
     {
       "file": "src/agentLoop.ts",
       "line": 106,
       "title": "Gate result → agent verdict",
-      "description": "The translation layer. Failed check names become `failedGates`; if the gate produced no state at all, the verdict still carries a reason (`gate_unavailable`) rather than an empty list. The agent is never told 'something failed' with nothing to act on."
+      "description": "The translation layer. Failed check names become `failedGates`; if the gate produced no state at all, the verdict still carries a reason (`gate_unavailable`) rather than an empty list. The agent is never told 'something failed' with nothing to act on.",
+      "pattern": "^\\s*function verdictFromGate\\(runId: string, state: GateState \\| undefined, exitCode: number\\): ProofloopVerdict \\{\\s*$"
     },
     {
       "file": "src/agentLoop.ts",
       "line": 89,
       "title": "When the agent cannot be launched",
-      "description": "Dry run, launch failure, or an agent that is not installed: the loop stops after that attempt and returns the gate's exit code, with the prompt still written to disk. A human can read the prompt and act on it themselves."
+      "description": "Dry run, launch failure, or an agent that is not installed: the loop stops after that attempt and returns the gate's exit code, with the prompt still written to disk. A human can read the prompt and act on it themselves.",
+      "pattern": "^\\s*if \\(options\\.dryRun \\|\\| !runResult\\.launched \\|\\| runResult\\.status === \"failed\"\\) \\{\\s*$"
     },
     {
       "file": "src/mcp.ts",
       "line": 28,
       "title": "Tool registration",
-      "description": "Five tools, a plain array — no framework, no decorators. Spoken over stdin/stdout as JSON-RPC (Model Context Protocol).\n\nThe boundary that matters: **every tool here is read-only**. An agent cannot use this server to change files."
+      "description": "Five tools, a plain array — no framework, no decorators. Spoken over stdin/stdout as JSON-RPC (Model Context Protocol).\n\nThe boundary that matters: **every tool here is read-only**. An agent cannot use this server to change files.",
+      "pattern": "^\\s*const TOOLS: McpTool\\[\\] = \\[\\s*$"
     },
     {
       "file": "src/mcp.ts",
       "line": 56,
       "title": "The server loop",
-      "description": "Newline-framed JSON-RPC over stdin. `runCli` returns the sentinel `MCP_SERVER_RUNNING` instead of an exit code so the process is not killed while the server is serving."
+      "description": "Newline-framed JSON-RPC over stdin. `runCli` returns the sentinel `MCP_SERVER_RUNNING` instead of an exit code so the process is not killed while the server is serving.",
+      "pattern": "^\\s*export function startMcpServer\\(options: \\{ root: string \\}\\): void \\{\\s*$"
     },
     {
       "file": "src/proofloopToolUse.ts",
       "line": 1,
       "title": "Proving what the agent actually called",
-      "description": "Read this header before changing anything in the file. The listed properties are load-bearing: an empty trace fails a required-tool contract instead of passing vacuously, and `mcp__evil__GMAIL_SEND_EMAIL` cannot satisfy a rule pinned to server `composio`.\n\nThe honest boundary is stated too: this proves what *this machine's* hooks observed, not what a provider recorded."
+      "description": "Read this header before changing anything in the file. The listed properties are load-bearing: an empty trace fails a required-tool contract instead of passing vacuously, and `mcp__evil__GMAIL_SEND_EMAIL` cannot satisfy a rule pinned to server `composio`.\n\nThe honest boundary is stated too: this proves what *this machine's* hooks observed, not what a provider recorded.",
+      "pattern": "^\\s*/\\*\\*\\s*$"
     },
     {
       "file": "src/proofloopToolUse.ts",
       "line": 519,
       "title": "The verifier",
-      "description": "Deterministic, no model involved. Required tools (optionally pinned to one MCP server, with deep-subset parameter matching), forbidden tools (matched on both the full and bare name), and ordering rules.\n\nMalformed trace lines above 10% fail verification — corrupting the log cannot buy a pass."
+      "description": "Deterministic, no model involved. Required tools (optionally pinned to one MCP server, with deep-subset parameter matching), forbidden tools (matched on both the full and bare name), and ordering rules.\n\nMalformed trace lines above 10% fail verification — corrupting the log cannot buy a pass.",
+      "pattern": "^\\s*export function verifyToolUseContract\\(\\s*$"
     },
     {
       "file": "tests/fixtures/tooluse/composio-email-triage/contract.json",
       "line": 1,
       "title": "What a contract looks like",
-      "description": "The fixture is the readable specification. Beside it are four traces — pass, forbidden call, missing required call, namespace spoof — and `tests/proofloopToolUse.test.ts` asserts the verdict for each."
+      "description": "The fixture is the readable specification. Beside it are four traces — pass, forbidden call, missing required call, namespace spoof — and `tests/proofloopToolUse.test.ts` asserts the verdict for each.",
+      "pattern": "^\\s*\\{\\s*$"
     }
   ]
 }

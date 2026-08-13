@@ -124,5 +124,5 @@ dependency of the deployed functions. All three at once, which is unusual, so:
   the shape of `src/gate.ts`: exported pure functions, plus one `run*Cli`
   wrapper that returns an exit code and does all the printing.
 - **New agent host** — an entry in `PROOFLOOP_AGENT_ADAPTER_IDS`
-  (`src/agentAdapters.ts:6`) and its settings path.
+  (`src/agentAdapters.ts:17`) and its settings path.
 - **New MCP tool** — an entry in `TOOLS` (`src/mcp.ts:28`). Keep it read-only.
