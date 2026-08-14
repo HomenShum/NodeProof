@@ -4,38 +4,45 @@ Everything a new maintainer should know that is *not* good news. Each entry says
 what it is, how to see it, and why it is still here. Nothing on this list is
 hidden anywhere else in the packet.
 
-## Open product defects (from the promotion loop)
+## Product defects (from the promotion loop)
 
-These have reproductions in `promotion/PROMOTION_LOG.md` and are **user-visible
-today**. They were left open by this structural pass on purpose: the gate this
-pass answers to forbids mixing feature work with refactoring, and fixing D1
-means writing new user-facing copy.
+Reproductions live in `promotion/PROMOTION_LOG.md`. D1 and D2 were open through
+the structural pass — that pass answers to a gate forbidding feature work mixed
+with refactoring, and both fixes are feature work. **Both were closed on
+2026-08-14 (wave 4)**, and are kept here with what they were, because the shape
+of the bug is the useful part.
 
-### D1 — the landing page's main failure path shows the word `blocked`
+### D1 — the landing page's main failure path showed the word `blocked`
 
-**Severity: major.** Load `/`, type `https://example.com`, submit. The status
-line's entire message is the single lowercase word **`blocked`**, above a raw
-JSON dump.
+**Severity: major. CLOSED 2026-08-14.** Load `/`, type `https://example.com`,
+submit. The status line's entire message was the single lowercase word
+**`blocked`**, above a raw JSON dump.
 
-**Cause:** `public/app.js:127` passes `data.status` — a machine enum minted at
+**Cause:** `public/app.js` passed `data.status` — a machine enum minted at
 `api/hosted/submit.js:35` — straight into `setStatus()` as user-facing copy.
-The refusal itself is correct and the JSON even contains the fix instructions;
-the sentence telling the user what happened is missing.
+The refusal itself was correct and the JSON even contained the fix instructions;
+the sentence telling the user what happened was missing.
 
-**Fix shape:** map the enum to a sentence in `public/app.js`. Do not change the
-API — the enum is the machine contract and `tests/hostedApi.test.ts` asserts it.
+**Fixed** where the enum becomes copy, not at the API: `public/app.js:30`
+`blockedMessage()`, called at `public/app.js:149`. The API contract that
+`tests/hostedApi.test.ts` asserts is untouched. Proof: the headline is a sentence
+in `promotion/evidence/browser-proof/receipt.json` → `journeys.J5.status`.
 
-### D2 — the page's only dynamic output is announced to nobody
+### D2 — the page's only dynamic output was announced to nobody
 
-**Severity: major.** `document.querySelector('[data-intake-status]').outerHTML`
-returns `<p class="status" data-intake-status hidden></p>` — no `role="status"`,
-no `aria-live`. Every message the page produces (success, blocked, GitHub auth)
-is silent to a screen reader. Compounding it, queued/github (`public/styles.css:165`,
-`var(--accent-hover)` = `#e59579`) and blocked (`public/styles.css:169`, `#ffb199`)
-are two warm oranges distinguished by colour alone — no icon, no text prefix.
+**Severity: major. CLOSED 2026-08-14.**
+`document.querySelector('[data-intake-status]').outerHTML` returned
+`<p class="status" data-intake-status hidden></p>` — no `role="status"`, no
+`aria-live`. Every message the page produced (success, blocked, GitHub auth) was
+silent to a screen reader. Compounding it, queued/github (`public/styles.css:198`,
+`var(--accent-hover)` = `#e59579`) and blocked (`public/styles.css:207`, `#ffb199`)
+were two warm oranges distinguished by colour alone — no icon, no text prefix.
 
-**Fix shape:** `role="status" aria-live="polite"` on the element, plus a
-non-colour distinction. Both are in `public/index.html` / `public/styles.css`.
+**Fixed** in `public/index.html` (`role="status" aria-live="polite"`, and the
+`hidden` attribute removed — a live region has to be in the accessibility tree
+before its text changes or nothing is announced) and `public/styles.css` (a
+`::before` glyph per kind). Proof: `promotion/evidence/wig/receipt.json` → W1,
+W11, against `wig/before/receipt.json` where both failed.
 
 ## Structural findings left unresolved
 

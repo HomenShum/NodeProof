@@ -7,12 +7,24 @@ npm test                          # pretest builds (tsc), then vitest run
 npx vitest run tests/gate.test.ts # one file
 npm run test:watch                # watch mode
 npm run proofloop:browser-proof   # the real-Chromium proof of the landing page
+npm run proofloop:web-audit       # Lighthouse + axe against the same page (needs network)
+npm run proofloop:wig-review      # Web Interface Guidelines measurements, same page
 node dist/cli.js gate             # the tool's own gate: npm run build && npm test
 ```
 
-Current state at the commit that ships this document: **28 files, 198 tests,
-0 failed.** `npm test` builds first — `pretest` runs `npm run build` — because
-two suites spawn the compiled `dist/cli.js` rather than importing TypeScript.
+Current state at the commit that ships this document: **28 files, 263 tests,
+0 failed**, measured 2026-08-14.
+
+`npm test` builds first — `pretest` runs `npm run build` — because two suites
+spawn the compiled `dist/cli.js` rather than importing TypeScript.
+
+The previous value on this line was 198 and was already stale before the commit
+that corrected it: the parent commit measures **260** on the same machine. All
+three extra cases are that commit's own, because the count is data-driven —
+`walkthrough.test.ts` generates one case per documentation anchor and one per
+markdown file under `docs/` and `promotion/`, and that commit added one anchor
+and two documents. Adding a document to this repository moves this number. Run
+the suite and read it; never assume it.
 
 Chromium is a separate install for the browser proof:
 `npx playwright install chromium`.

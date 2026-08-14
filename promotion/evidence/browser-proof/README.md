@@ -76,12 +76,21 @@ up twice. The probe explains it in both places — matched on URL **and** status
 so any other path or any other status still fails the run — and ships both lists
 in the receipt under `console.explainedErrors` and `console.unexplainedErrors`.
 
-## Defects the probe sees and does not fix
+## Defects the probe recorded — and the diff that closed them
 
 `receipt.json` → `openDefects`. Recorded rather than fixed so that a later fix
-flips a field a reader can diff:
+would flip a field a reader can diff. **On 2026-08-14 it did: the list is now
+empty**, and the same two measurements became assertions, so a regression fails
+the run instead of quietly re-shipping.
 
-- **D1** — `public/app.js:127` renders the machine enum `blocked` as the
-  user-facing headline. Visible in `j5-01-refused-1280.png`.
-- **D2** — `[data-intake-status]` carries no `role="status"` / `aria-live`, so
-  the page's only dynamic output is announced to nobody.
+- **D1** — the machine enum `blocked` as the user-facing headline. Now
+  `journeys.J5.status` is the sentence *"Blocked — nobody has proved they own
+  example.com yet…"*, from `blockedMessage()` at `public/app.js:30`. Visible in
+  `j5-01-refused-1280.png`.
+- **D2** — `[data-intake-status]` carried no `role="status"` / `aria-live`, so
+  the page's only dynamic output was announced to nobody. Now checked on first
+  load, before any text is written into it, which is the only time the check is
+  meaningful.
+- New in the same run: `j5-02-pending-1280.png`, the `Submitting…` state, held
+  open 900 ms with `page.route` so it could be captured at all. The scorecard had
+  it as "never observed — the response returned faster than a capture".

@@ -1,8 +1,8 @@
 {
   "schema": "proofloop-browser-proof-v1",
   "producer": "scripts/browser-proof.mjs (npm run proofloop:browser-proof)",
-  "capturedAt": "2026-08-13T19:11:12.047Z",
-  "base": "http://127.0.0.1:4509",
+  "capturedAt": "2026-08-14T03:04:14.602Z",
+  "base": "http://127.0.0.1:4909",
   "node": "v22.22.2",
   "playwright": "1.62.1",
   "pass": true,
@@ -23,11 +23,18 @@
       "enterKeySubmits": true
     },
     "J5": {
-      "status": "blocked",
+      "status": "Blocked — nobody has proved they own example.com yet, so ProofLoop will not point a browser at it. Do either step in the receipt below, then ProofLoop again.",
       "httpStatus": 400,
-      "latencyMs": 185,
+      "latencyMs": 190,
       "screenshot": "promotion/evidence/browser-proof/j5-01-refused-1280.png",
-      "detail": "{\n  \"status\": \"pending\",\n  \"host\": \"example.com\",\n  \"method\": \"well-known-token\",\n  \"token\": \"proofloop-domain-example-com-verify\",\n  \"evidence\": [\n    \"Serve https://example.com/.well-known/proofloop-domain-verification.txt containing proofloop-domain-example-com-verify.\",\n    \"Or publish DNS TXT _proofloop.example.com=proofloop-domain-example-com-verify.\"\n  ],\n  \"blockers\": [\n    \"domain_permission_verification_pending\"\n  ]\n}"
+      "detail": "{\n  \"status\": \"pending\",\n  \"host\": \"example.com\",\n  \"method\": \"well-known-token\",\n  \"token\": \"proofloop-domain-example-com-verify\",\n  \"evidence\": [\n    \"Serve https://example.com/.well-known/proofloop-domain-verification.txt containing proofloop-domain-example-com-verify.\",\n    \"Or publish DNS TXT _proofloop.example.com=proofloop-domain-example-com-verify.\"\n  ],\n  \"blockers\": [\n    \"domain_permission_verification_pending\"\n  ]\n}",
+      "pending": {
+        "statusText": "Submitting…",
+        "submitDisabled": true,
+        "submitLabel": "ProofLoop",
+        "screenshot": "promotion/evidence/browser-proof/j5-02-pending-1280.png",
+        "note": "captured with the response held open 900ms by page.route; the page is unmodified"
+      }
     }
   },
   "layout": [
@@ -93,16 +100,21 @@
     }
   ],
   "timings": {
-    "domContentLoadedMs": 118,
-    "loadMs": 123,
-    "sameOriginTransferBytes": 9874
+    "domContentLoadedMs": 231,
+    "loadMs": 231,
+    "sameOriginTransferBytes": 13095
   },
   "console": {
     "unexplainedErrors": [],
     "explainedErrors": [
       {
         "text": "Failed to load resource: the server responded with a status of 400 (Bad Request)",
-        "url": "http://127.0.0.1:4509/api/hosted/submit",
+        "url": "http://127.0.0.1:4909/api/hosted/submit",
+        "explanation": "J5 refusal: /api/hosted/submit answers an unverified host with 400 by design"
+      },
+      {
+        "text": "Failed to load resource: the server responded with a status of 400 (Bad Request)",
+        "url": "http://127.0.0.1:4909/api/hosted/submit",
         "explanation": "J5 refusal: /api/hosted/submit answers an unverified host with 400 by design"
       }
     ],
@@ -174,10 +186,32 @@
       "method": "POST",
       "path": "/api/hosted/submit",
       "status": 400
+    },
+    {
+      "method": "GET",
+      "path": "/",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/styles.css",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/app.js",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/github/status",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/hosted/submit",
+      "status": 400
     }
   ],
-  "openDefects": [
-    "D1 public/app.js:127 renders the machine enum \"blocked\" as the user-facing headline",
-    "D2 [data-intake-status] has no role=\"status\"/aria-live, so the only dynamic output is announced to nobody"
-  ]
+  "openDefects": []
 }

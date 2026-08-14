@@ -1,0 +1,91 @@
+{
+  "schema": "proofloop-web-audit-v1",
+  "producer": "scripts/web-audit.mjs (npm run proofloop:web-audit)",
+  "condition": "PROMOTION gate condition 8 — web-quality audit (accessibility, performance, Core Web Vitals)",
+  "capturedAt": "2026-08-14T03:11:05.168Z",
+  "base": "http://127.0.0.1:4909/",
+  "node": "v22.22.2",
+  "tools": {
+    "lighthouse": "lighthouse@13.4.1",
+    "axe": "@axe-core/cli@4.13.0"
+  },
+  "thresholds": {
+    "lighthouseAccessibility": 0.9,
+    "lighthousePerformance": 0.9,
+    "lighthouseBestPractices": 0.9,
+    "lcpMs": 2500,
+    "clsScore": 0.1,
+    "axeMajorImpacts": [
+      "serious",
+      "critical"
+    ]
+  },
+  "commands": [
+    {
+      "label": "lighthouse",
+      "command": "npx --yes lighthouse@13.4.1 http://127.0.0.1:4909/ --output=json --output-path=\"promotion/evidence/web-audit/lighthouse.json\" --chrome-flags=--headless",
+      "exitCode": 0,
+      "elapsedMs": 15097,
+      "log": "promotion/evidence/web-audit/lighthouse.log"
+    },
+    {
+      "label": "axe",
+      "command": "npx --yes @axe-core/cli@4.13.0 http://127.0.0.1:4909/ --save \"promotion/evidence/web-audit/axe.json\"",
+      "exitCode": 0,
+      "elapsedMs": 4823,
+      "log": "promotion/evidence/web-audit/axe.log"
+    }
+  ],
+  "lighthouse": {
+    "lighthouseVersion": "13.4.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+    "scores": {
+      "performance": 1,
+      "accessibility": 1,
+      "best-practices": 1,
+      "seo": 1
+    },
+    "coreWebVitals": {
+      "largestContentfulPaintMs": 807.1421,
+      "cumulativeLayoutShift": 0,
+      "totalBlockingTimeMs": 0,
+      "firstContentfulPaintMs": 807.1421,
+      "speedIndexMs": 807.1421
+    },
+    "failingAudits": [
+      {
+        "id": "cache-insight",
+        "title": "Use efficient cache lifetimes",
+        "score": 0.5
+      },
+      {
+        "id": "document-latency-insight",
+        "title": "Document request latency",
+        "score": 0.5
+      },
+      {
+        "id": "network-dependency-tree-insight",
+        "title": "Network dependency tree",
+        "score": 0
+      },
+      {
+        "id": "render-blocking-insight",
+        "title": "Render-blocking requests",
+        "score": 0
+      }
+    ]
+  },
+  "axe": {
+    "axeVersion": "4.13.0",
+    "url": "http://127.0.0.1:4909/",
+    "counts": {
+      "violations": 0,
+      "passes": 32,
+      "incomplete": 0
+    },
+    "violations": []
+  },
+  "majorFindings": [],
+  "failures": [],
+  "pass": true
+}

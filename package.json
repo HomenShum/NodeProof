@@ -53,6 +53,8 @@
     "proofloop:hosted": "node dist/cli.js hosted intake --url https://noderoom.live --app-type agent-app --consent",
     "proofloop:hosted-worker": "node scripts/hosted-worker.mjs --request .proofloop/hosted/queue/latest.json",
     "proofloop:browser-proof": "node scripts/browser-proof.mjs",
+    "proofloop:web-audit": "node scripts/web-audit.mjs",
+    "proofloop:wig-review": "node scripts/wig-review.mjs",
     "proofloop:maturity": "node dist/cli.js maturity --dense",
     "proofloop:productivity": "node dist/cli.js productivity --write",
     "proofloop:report": "node dist/cli.js report latest",

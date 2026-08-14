@@ -20,13 +20,11 @@
  *
  * Flags: --port <n> (default 4310)  --headed  --out <dir>
  */
-import { createServer } from "node:http";
 import { createRequire } from "node:module";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { extname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { ROOT, startPublicServer } from "./serve-public.mjs";
 
-const ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const require = createRequire(import.meta.url);
 
 const argv = process.argv.slice(2);
@@ -39,69 +37,18 @@ const PORT = Number(flag("port", 4310));
 const OUT = resolve(ROOT, flag("out", "promotion/evidence/browser-proof"));
 const HEADED = argv.includes("--headed");
 
-if (!existsSync(join(ROOT, "dist", "hosted.js"))) {
-  console.error("dist/ is missing: run `npm run build` first (api/** handlers require dist/hosted.js).");
-  process.exit(2);
-}
-
 const { chromium } = await import("playwright").catch(() => {
   console.error("playwright not found: run `npm install` then `npx playwright install chromium`.");
   process.exit(2);
 });
 
 // ---------------------------------------------------------------- local server
-// Serves public/ and mounts api/**/*.js exactly as Vercel routes them
-// (cleanUrls: true -> /api/hosted/submit resolves api/hosted/submit.js).
-const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml", ".png": "image/png", ".ico": "image/x-icon" };
-
-function apiHandlerPath(pathname) {
-  if (!pathname.startsWith("/api/")) return null;
-  const rel = pathname.replace(/^\/+/, "").replace(/\/+$/, "");
-  if (rel.includes("..") || rel.split("/").some((part) => part.startsWith("_"))) return null;
-  const file = join(ROOT, `${rel}.js`);
-  return existsSync(file) ? file : null;
-}
-
-const responses = [];
-const server = createServer(async (req, res) => {
-  const url = new URL(req.url, `http://127.0.0.1:${PORT}`);
-  res.on("finish", () => responses.push({ method: req.method, path: url.pathname, status: res.statusCode }));
-  const handlerPath = apiHandlerPath(url.pathname);
-  if (handlerPath) {
-    req.query = Object.fromEntries(url.searchParams);
-    try {
-      await require(handlerPath)(req, res);
-    } catch (error) {
-      res.statusCode = 500;
-      res.end(JSON.stringify({ ok: false, error: String(error && error.message ? error.message : error) }));
-    }
-    return;
-  }
-  const file = join(ROOT, "public", url.pathname === "/" ? "index.html" : url.pathname.replace(/^\/+/, ""));
-  if (!file.startsWith(join(ROOT, "public")) || !existsSync(file)) {
-    res.statusCode = 404;
-    res.end("not found");
-    return;
-  }
-  res.setHeader("content-type", MIME[extname(file)] || "application/octet-stream");
-  res.end(readFileSync(file));
-});
-// Bind explicitly on 127.0.0.1 and refuse to continue if the port is taken: a
-// probe that silently measures somebody else's dev server proves nothing.
-await new Promise((ok, fail) => {
-  server.once("error", (error) => {
-    if (error.code === "EADDRINUSE") {
-      fail(new Error(`port ${PORT} is already in use — another server would be measured instead of this one. Re-run with --port <free port>.`));
-      return;
-    }
-    fail(error);
-  });
-  server.listen(PORT, "127.0.0.1", ok);
-}).catch((error) => {
+// scripts/serve-public.mjs — the same surface the Lighthouse/axe audit measures.
+const site = await startPublicServer(PORT).catch((error) => {
   console.error(error.message);
   process.exit(2);
 });
-const BASE = `http://127.0.0.1:${PORT}`;
+const { base: BASE, responses } = site;
 
 // ------------------------------------------------------------------- the probe
 mkdirSync(OUT, { recursive: true });
@@ -143,8 +90,21 @@ const timings = await page.evaluate(() => {
     sameOriginTransferBytes: Math.round(bytes),
   };
 });
-const emptyStateHidden = await page.$eval("[data-intake-status]", (el) => el.hidden);
-check("empty state", emptyStateHidden, "status line should start hidden on first load");
+// Was: check("empty state", el.hidden, "status line should start hidden on first
+// load"). The `hidden` attribute is gone on purpose — a live region has to be in
+// the accessibility tree before its text changes or the change is never
+// announced (WCAG 4.1.3 / the WIG rule "MUST: Use polite `aria-live`"), which
+// was defect D2. The user-facing property the old assertion was reaching for is
+// "nothing is said before you ask", so that is what is asserted now, plus the
+// live region being present and empty.
+const emptyState = await page.$eval("[data-intake-status]", (el) => ({
+  text: el.textContent.trim(),
+  role: el.getAttribute("role"),
+  ariaLive: el.getAttribute("aria-live"),
+  detailHidden: document.querySelector("[data-intake-detail]").hidden,
+}));
+check("empty state", emptyState.text === "" && emptyState.detailHidden, `status/detail not empty on first load: ${JSON.stringify(emptyState)}`);
+check("status is a live region before it changes", emptyState.role === "status" && emptyState.ariaLive === "polite", `got role=${emptyState.role} aria-live=${emptyState.ariaLive}`);
 check("condition 10 load budget", timings.domContentLoadedMs < 3000, `domContentLoaded ${timings.domContentLoadedMs}ms >= 3000ms`);
 const emptyShot = await shot("j4-01-empty-1280");
 
@@ -181,6 +141,30 @@ for (const fragment of ["\"host\": \"example.com\"", "well-known-token", "proofl
 const submitResponse = responses.filter((r) => r.path === "/api/hosted/submit").pop();
 check("J5 refusal is a stated refusal", submitResponse?.status === 400, `POST /api/hosted/submit -> ${submitResponse?.status}`);
 const j5Shot = await shot("j5-01-refused-1280");
+
+// --- condition 5, the pending state. The scorecard said it "was never observed
+// — the response returned faster than a capture", which is an honest reason and
+// also a solvable one: hold the response open and the real page renders its real
+// pending state. Nothing is faked; only the network is slowed.
+await page.goto(BASE, { waitUntil: "load" });
+await page.route("**/api/hosted/submit", async (route) => {
+  await new Promise((ok) => setTimeout(ok, 900));
+  await route.continue();
+});
+await page.fill("[data-testid=\"target-input\"]", "https://example.com");
+await page.click("[data-testid=\"target-submit\"]");
+await page.waitForFunction(() => document.querySelector("[data-intake-status]").getAttribute("data-kind") === "pending", null, { timeout: 5000 });
+const pending = await page.evaluate(() => ({
+  statusText: document.querySelector("[data-intake-status]").textContent.trim(),
+  submitDisabled: document.querySelector("[data-testid=\"target-submit\"]").disabled,
+  submitLabel: document.querySelector("[data-testid=\"target-submit\"]").textContent.trim(),
+}));
+const pendingShot = await shot("j5-02-pending-1280");
+check("condition 5 pending state", pending.statusText === "Submitting…" && pending.submitDisabled, `pending state was ${JSON.stringify(pending)}`);
+// WIG Forms: "MUST: Loading buttons ... keep original label".
+check("pending keeps the button label", pending.submitLabel === "ProofLoop", `label became ${JSON.stringify(pending.submitLabel)}`);
+await page.waitForSelector("[data-intake-detail]:not([hidden])", { timeout: 30000 });
+await page.unroute("**/api/hosted/submit");
 
 // --- conditions 3 and 4: layout measured, not read off the CSS
 const widths = [316, 386, 620, 768, 1280, 2560];
@@ -224,14 +208,21 @@ check("condition 9 no page errors", pageErrors.length === 0, pageErrors.join(" |
 check("condition 9 no failed requests", requestFailures.length === 0, requestFailures.join(" | "));
 check("condition 9 no unexplained non-2xx", unexplainedResponses.length === 0, unexplainedResponses.map((r) => `${r.status} ${r.method} ${r.path}`).join(" | "));
 
-// --- open defects the probe can see but does not fix, so a future fix flips a recorded field
-const openDefects = [];
-if (j5.status === "blocked") openDefects.push("D1 public/app.js:127 renders the machine enum \"blocked\" as the user-facing headline");
+// --- the two defects this probe was written to record. They are now fixed, so
+// the same fields that recorded them are the regression check: if either comes
+// back, `openDefects` refills and the run fails instead of quietly re-shipping.
+const MACHINE_ENUMS = ["blocked", "queued", "pending", "dispatch_failed", "ok", "error"];
 const statusAria = await page.$eval("[data-intake-status]", (el) => ({ role: el.getAttribute("role"), ariaLive: el.getAttribute("aria-live") }));
-if (!statusAria.role && !statusAria.ariaLive) openDefects.push("D2 [data-intake-status] has no role=\"status\"/aria-live, so the only dynamic output is announced to nobody");
+const d1Open = MACHINE_ENUMS.includes(j5.status.toLowerCase());
+const d2Open = !statusAria.role && !statusAria.ariaLive;
+const openDefects = [];
+if (d1Open) openDefects.push("D1 public/app.js renders a machine enum as the user-facing headline");
+if (d2Open) openDefects.push("D2 [data-intake-status] has no role=\"status\"/aria-live, so the only dynamic output is announced to nobody");
+check("D1 stays fixed: the refusal headline is a sentence, not an enum", !d1Open, `J5 headline is ${JSON.stringify(j5.status)}`);
+check("D2 stays fixed: the status region is announced", !d2Open, "no role/aria-live on [data-intake-status]");
 
 await browser.close();
-await new Promise((ok) => server.close(ok));
+await site.close();
 
 const receipt = {
   schema: "proofloop-browser-proof-v1",
@@ -244,7 +235,7 @@ const receipt = {
   failures,
   journeys: {
     J4: { status: j4.status, commands: J4_COMMANDS, screenshots: [emptyShot, j4Shot], enterKeySubmits },
-    J5: { status: j5.status, httpStatus: submitResponse?.status, latencyMs: j5.latencyMs, screenshot: j5Shot, detail: j5.detail },
+    J5: { status: j5.status, httpStatus: submitResponse?.status, latencyMs: j5.latencyMs, screenshot: j5Shot, detail: j5.detail, pending: { ...pending, screenshot: pendingShot, note: "captured with the response held open 900ms by page.route; the page is unmodified" } },
   },
   layout,
   timings,

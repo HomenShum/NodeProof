@@ -142,8 +142,8 @@ actually look for it.
 
 | Finding | Why it is still here |
 |---|---|
-| **D1** — the landing page renders the machine enum `blocked` as its whole user-facing message (`public/app.js:127`) | writing new user-facing copy is feature work; rule 3 forbids mixing it with a structural pass. Fix shape and file are documented. |
-| **D2** — the page's status element has no `role="status"`/`aria-live`, and success/blocked differ only by colour | same reason. Both are product fixes owned by the promotion loop. |
+| **D1** — the landing page renders the machine enum `blocked` as its whole user-facing message | writing new user-facing copy is feature work; rule 3 forbids mixing it with a structural pass. Fix shape and file were documented — and **closed 2026-08-14 by the promotion loop**, at `public/app.js:149`, exactly where this row said it belonged. |
+| **D2** — the page's status element has no `role="status"`/`aria-live`, and success/blocked differ only by colour | same reason. Both were product fixes owned by the promotion loop; **closed 2026-08-14**. |
 | **`dist/` is committed compiled output *and* a runtime dependency** of `api/hosted/_shared.js:2` and `scripts/hosted-worker.mjs:11` | untracking it needs `.gitignore` plus an npm `prepare` script, and interacts with npm's `files` allowlist during packing; the deployed Vercel function path could not be re-verified without a deployment, which was out of scope. The exact steps are written down in CONCERNS.md. |
 | **`src/index.ts` `export *` makes dead-export detection impossible** | narrowing the barrel is a breaking change to the published API surface. |
 | **`src/maturity.ts:281` scores `live_browser_verification` as `met` from a filename match** | changing a score is a product change. Now stated in the module's own header so nobody trusts it by accident. |

@@ -35,6 +35,14 @@ input {
   font: inherit;
 }
 
+/* WIG Targets & Input: "MUST: `touch-action: manipulation` to prevent double-tap
+   zoom". Every control on the page, not just the button. */
+button,
+input,
+a {
+  touch-action: manipulation;
+}
+
 .landing {
   display: grid;
   min-height: 100vh;
@@ -43,6 +51,10 @@ input {
   gap: 16px;
   width: min(760px, calc(100vw - 32px));
   margin: 0 auto;
+  /* WIG Layout: "MUST: Respect safe areas". On a notched phone in landscape the
+     intake would otherwise sit under the cutout. */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
 }
 
 .eyebrow,
@@ -122,7 +134,8 @@ button:disabled {
 }
 
 input:focus-visible,
-button:focus-visible {
+button:focus-visible,
+.detail:focus-visible {
   outline: 2px solid var(--accent-hover);
   outline-offset: 2px;
 }
@@ -130,7 +143,9 @@ button:focus-visible {
 .github-sso {
   justify-self: start;
   display: inline-flex;
-  min-height: 38px;
+  /* WIG: "MUST: Hit target ≥24px (mobile ≥44px)". Was 38px, measured on a
+     386px touch viewport in promotion/evidence/wig/receipt-before-fixes.json. */
+  min-height: 44px;
   align-items: center;
   justify-content: center;
   border: 1px solid var(--line);
@@ -143,10 +158,18 @@ button:focus-visible {
   font-weight: 700;
 }
 
-.github-sso:hover,
+.github-sso:hover {
+  border-color: var(--accent);
+}
+
+/* Was `outline: 0` with only a 1px border-colour change as the replacement —
+   the weakest focus indicator of the three controls. WIG Keyboard: "MUST:
+   Visible focus rings"; "NEVER: `outline: none` without visible focus
+   replacement". Now the same 2px ring the input and button already had. */
 .github-sso:focus-visible {
   border-color: var(--accent);
-  outline: 0;
+  outline: 2px solid var(--accent-hover);
+  outline-offset: 2px;
 }
 
 .github-sso[data-authenticated="true"] {
@@ -160,13 +183,36 @@ button:focus-visible {
   line-height: 1.5;
 }
 
+/* WIG Content & Accessibility: "MUST: Redundant status cues (not color-only)".
+   Success and refusal used to be two warm oranges — #e59579 and #ffb199 — and
+   nothing else. Colour, glyph, and the leading word of the sentence now all
+   carry the state, so it survives greyscale, colour blindness, and a screen
+   reader reading the live region aloud. */
+.status[data-kind]::before {
+  margin-right: 6px;
+  font-family: var(--mono);
+}
+
 .status[data-kind="queued"],
 .status[data-kind="github"] {
   color: var(--accent-hover);
 }
 
+.status[data-kind="queued"]::before,
+.status[data-kind="github"]::before {
+  content: "\2713"; /* check */
+}
+
 .status[data-kind="blocked"] {
   color: #ffb199;
+}
+
+.status[data-kind="blocked"]::before {
+  content: "\26A0"; /* warning */
+}
+
+.status[data-kind="pending"]::before {
+  content: "\2026"; /* ellipsis */
 }
 
 .detail {

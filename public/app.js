@@ -8,7 +8,6 @@
   if (!input || !submit || !status || !detail) return;
 
   function setStatus(kind, message, payload) {
-    status.hidden = false;
     status.setAttribute("data-kind", kind);
     status.textContent = message;
     if (payload === undefined) {
@@ -18,6 +17,26 @@
     }
     detail.hidden = false;
     detail.textContent = typeof payload === "string" ? payload : JSON.stringify(payload, null, 2);
+  }
+
+  /**
+   * Defect D1: the refusal headline used to be `data.status` — the machine enum
+   * `"blocked"` minted in api/hosted/submit.js:35 — rendered as the entire
+   * user-facing message above a JSON dump. The API's job is to answer a machine;
+   * turning that answer into a sentence is this page's job, and this is the one
+   * place a machine value becomes copy. Every branch names what happened and how
+   * to get out of it (WIG: "No dead ends; always offer next step/recovery").
+   */
+  function blockedMessage(data) {
+    const permission = data.permission || {};
+    if (data.status === "dispatch_failed") {
+      return "Dispatch failed — the request was accepted but the proof run could not be started. The receipt below has the dispatch error.";
+    }
+    if (permission.host && permission.token) {
+      return `Blocked — nobody has proved they own ${permission.host} yet, so ProofLoop will not point a browser at it. Do either step in the receipt below, then ProofLoop again.`;
+    }
+    if (data.error) return `Blocked — ${data.error}`;
+    return "Blocked — this run cannot start yet. The receipt below lists what has to change first.";
   }
 
   function normalizeTarget(raw) {
@@ -93,6 +112,9 @@
       new URL(target);
     } catch (error) {
       setStatus("blocked", error.message || "Enter a valid URL or GitHub repo.");
+      // WIG Forms: "MUST: Errors inline next to fields; on submit, focus first
+      // error". One field, so the first error is always this one.
+      input.focus();
       return;
     }
 
@@ -103,7 +125,7 @@
     }
 
     submit.disabled = true;
-    setStatus("pending", "Submitting...");
+    setStatus("pending", "Submitting…");
     try {
       const response = await fetch("/api/hosted/submit", {
         method: "POST",
@@ -124,12 +146,12 @@
       });
       const data = await response.json();
       if (!response.ok || !data.ok) {
-        setStatus("blocked", data.status || data.error || "Blocked", data.permission || data.validation || data);
+        setStatus("blocked", blockedMessage(data), data.permission || data.validation || data);
         return;
       }
-      setStatus("queued", `Queued ${data.runId}.`, data.urls || data);
+      setStatus("queued", `Queued run ${data.runId}. The links below follow it.`, data.urls || data);
     } catch (error) {
-      setStatus("blocked", error && error.message ? error.message : String(error));
+      setStatus("blocked", `Blocked — the browser could not reach ProofLoop (${error && error.message ? error.message : String(error)}). Check your connection and ProofLoop again.`);
     } finally {
       submit.disabled = false;
     }

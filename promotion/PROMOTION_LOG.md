@@ -61,8 +61,8 @@ reproduction; a hunch is not a defect.
 
 | # | Severity | Journey | Reproduction | Status |
 |---|----------|---------|--------------|--------|
-| D1 | Major | J5 | Load `/` at any width (verified at 386 px and 2560 px). Type `https://example.com` into `[data-testid="target-input"]`, click `[data-testid="target-submit"]`. The status line renders the single lowercase word **`blocked`** as its entire message, above a raw JSON dump. Cause: `public/app.js:127` passes `data.status` — a machine enum — straight into `setStatus()` as user-facing copy. **Corrected 2026-08-13:** that enum is minted in `api/hosted/submit.js:35` (`status: "blocked"`; also `"dispatch_failed"` at :49, `"queued"` at :60), not in `api/hosted/_shared.js` as this row first said — `_shared.js` owns the nested `permission.status` that appears inside the JSON detail. Open `submit.js` for the enum, `app.js:127` for the copy. The refusal is correct and the JSON even contains the fix instructions; the sentence telling the user what happened is simply missing. This is the primary failure path of the page's main flow. | OPEN |
-| D2 | Major | J4, J5 | Same steps as D1, with a screen reader or by inspecting the DOM: `document.querySelector('[data-intake-status]').outerHTML` returns `<p class="status" data-intake-status hidden></p>` — no `role="status"`, no `aria-live`. The page's only dynamic output (success, blocked, GitHub-auth route messages) is therefore never announced; a non-sighted user clicks ProofLoop and hears nothing. Compounding it, queued/github (`public/styles.css:165`, `var(--accent-hover)` = `#e59579`) and blocked (`public/styles.css:169`, `#ffb199`) are distinguished by colour alone — two warm oranges, no icon, no text prefix. | OPEN |
+| D1 | Major | J5 | Load `/` at any width (verified at 386 px and 2560 px). Type `https://example.com` into `[data-testid="target-input"]`, click `[data-testid="target-submit"]`. The status line renders the single lowercase word **`blocked`** as its entire message, above a raw JSON dump. Cause: the fetch handler in `public/app.js` passed `data.status` — a machine enum — straight into `setStatus()` as user-facing copy (line 127 at the time). **Corrected 2026-08-13:** that enum is minted in `api/hosted/submit.js:35` (`status: "blocked"`; also `"dispatch_failed"` at :49, `"queued"` at :60), not in `api/hosted/_shared.js` as this row first said — `_shared.js` owns the nested `permission.status` that appears inside the JSON detail. Open `submit.js` for the enum, `app.js` for the copy. The refusal is correct and the JSON even contains the fix instructions; the sentence telling the user what happened is simply missing. This is the primary failure path of the page's main flow. | **RESOLVED 2026-08-14 (wave 4)** — `public/app.js:30` `blockedMessage()` is now the one place a machine value becomes copy; the call site is `public/app.js:149`. Re-proved in the rendered page: `promotion/evidence/browser-proof/receipt.json` → `journeys.J5.status` is a sentence and `openDefects` is empty, screenshot `j5-01-refused-1280.png`. |
+| D2 | Major | J4, J5 | Same steps as D1, with a screen reader or by inspecting the DOM: `document.querySelector('[data-intake-status]').outerHTML` returns `<p class="status" data-intake-status hidden></p>` — no `role="status"`, no `aria-live`. The page's only dynamic output (success, blocked, GitHub-auth route messages) is therefore never announced; a non-sighted user clicks ProofLoop and hears nothing. Compounding it, queued/github (`public/styles.css:198`, `var(--accent-hover)` = `#e59579`) and blocked (`public/styles.css:207`, `#ffb199`) are distinguished by colour alone — two warm oranges, no icon, no text prefix. | **RESOLVED 2026-08-14 (wave 4)** — `role="status" aria-live="polite"` on the region, and `hidden` removed so it is in the accessibility tree before its text changes; three cues now separate the kinds (colour, a `::before` glyph, and the leading word of the sentence). Re-proved: `promotion/evidence/wig/receipt.json` → W1 and W11 pass, against `wig/before/receipt.json` where both failed. |
 | D3 | Minor | J1 | Run `npm run build`, then `ls public/`. `scripts/build-site.mjs` emits `webcontainer-demo.bundle.js` (362 KB) and `xterm.css` (7 KB) into `public/`, which `vercel.json` declares as the deploy `outputDirectory`. Nothing loads them: `grep -rn "webcontainer" public/index.html public/app.js tests/` matches only `scripts/build-site.mjs` itself. Every deploy ships 369 KB of dead bytes, and `site-src/webcontainer-demo.js` is built on every `pretest` for a page that does not exist. Either the in-browser demo was removed from the page and the build step outlived it, or it was never wired up. Classic unwired mechanism: the build is green and the asset is unreachable. | **RESOLVED 2026-08-13 (wave 3)** — deleted, not fixed: `site-src/webcontainer-demo.js`, `scripts/build-site.mjs`, the `build:site` step and four devDependencies are gone. See [docs/SIMPLIFICATION_REPORT.md](../docs/SIMPLIFICATION_REPORT.md). |
 
 ### Observations — not defects, no reproduction of harm
@@ -77,7 +77,7 @@ reproduction; a hunch is not a defect.
   (`AGENTS.md` / `CLAUDE.md`) at the root — the README recommends both. Reporting
   its own gaps is the tool working as designed, so this is noted rather than
   filed.
-- J2's Enter-to-submit path (`public/app.js:139`) was **not** confirmed with real
+- J2's Enter-to-submit path (`public/app.js:161`) was **not** confirmed with real
   keystrokes: the automation tab was backgrounded (`document.visibilityState ===
   "hidden"`), so synthesized typing never reached the input. Tab-order and
   focus-ring behaviour *were* observed while the tab was foregrounded. Wave 2
@@ -238,3 +238,114 @@ No product code was touched by this correction.
   merely *exists*. It read `met` before this iteration, when nothing in the repo
   could open a browser. The capability check matches a filename, not a runnable
   path. Recorded here; not claimed as fixed.
+
+### Iteration 2 — 2026-08-14
+
+Dates here are UTC, which is what every `capturedAt` in the receipts says; the
+local clock was still 2026-08-13.
+
+- **Journey exercised:** J5 "Prove it won't run against a site I don't own" —
+  the refusal path, which is where both remaining product defects lived — plus
+  J4 in the same run, and J1/J3 re-run in a terminal on the changed tree.
+
+- **Observed.** Two audits had never been run at all (conditions 7 and 8), and
+  the previous wave said so honestly: *"no audit tooling was installed inside the
+  time box"*. Run now, they say two different things, and the difference is the
+  finding:
+
+  - **Condition 8's tools passed the broken page.** Against the unmodified page,
+    Lighthouse 13.4.1 scored **accessibility 1.00** and axe-core 4.13.0 found
+    **0 violations** — while D1 and D2 were both live and a third defect nobody
+    had filed was too. Committed at
+    [evidence/web-audit/before/](evidence/web-audit/before/). Their one real
+    complaint was best-practices **0.96**, a 404 on `/favicon.ico`.
+  - **Condition 7 found what they could not.** Seventeen Web Interface Guidelines
+    rules judged against the rendered page: **13 failed, five of them major**
+    ([evidence/wig/before/receipt.json](evidence/wig/before/receipt.json)). The
+    five majors were D1 (the error state prints a machine enum and offers no way
+    out), D2 (the only live region is not a live region), the same status colours
+    being the *only* cue distinguishing success from refusal, a **38 px** tap
+    target on `Continue with GitHub` at 386 px — six pixels under the 44 px floor,
+    on the one control that leaves the page — and W17: the refusal receipt is a
+    scrolling box (284 px of content in 218 px of room) with `tabIndex` −1 and no
+    accessible name, so 66 px of the answer, including one of the two ways to
+    prove domain ownership, was reachable only with a pointer.
+  - **W17 is the sharp one**, because axe *has* a rule for it
+    (`scrollable-region-focusable`, impact serious) and still reported zero
+    violations: axe audits the page as it loads, and that panel is `hidden` until
+    a submission is refused. An automated pass that never opens the failure state
+    cannot see the failure state. It was found by driving the page into the state
+    the user complains about, which is what a review is for.
+
+  This is the reason the gate keeps 7 and 8 as separate rows, and the reason a
+  Lighthouse score must never be recorded as a Web Interface Guidelines review.
+
+- **Fixed** — the first product-code change in this loop. Root cause each time,
+  not the symptom:
+
+  - `public/app.js` — `blockedMessage()` is now the single place an API enum
+    becomes user-facing copy. Not a patch at the call site: every branch that can
+    render a machine value goes through it, so `dispatch_failed` and a network
+    failure get sentences too. The receipt JSON stays underneath, because it is
+    J5's entire point; it is now evidence under a sentence instead of the answer.
+  - `public/index.html` — `role="status" aria-live="polite"`, and the `hidden`
+    attribute **removed**. The removal is the fix: a live region has to be in the
+    accessibility tree before its text changes, so revealing and filling it in
+    the same moment still announces nothing. Also `name="target"` on the input, a
+    `theme-color`, and an inline SVG favicon that removes the page's only console
+    error.
+  - `public/styles.css` — `min-height: 44px` on the GitHub link, the same 2 px
+    focus ring the other two controls already had (it had `outline: 0` and a 1 px
+    border-colour change), `touch-action: manipulation`, safe-area insets, and a
+    `::before` glyph per status kind so colour is no longer the only cue.
+  - `public/index.html` + `public/styles.css` — `tabindex="0"`, an
+    `aria-label`, and a focus ring on the receipt panel, so the scrolling box
+    holding the answer is reachable from the keyboard (W17).
+  - `scripts/serve-public.mjs` — extracted from `scripts/browser-proof.mjs` so
+    the new audits measure the *same* server. Two probes measuring two servers
+    would not be measuring one page.
+  - `scripts/web-audit.mjs`, `scripts/wig-review.mjs` — the two producers
+    conditions 7 and 8 lacked, plus `npm run proofloop:web-audit` and
+    `npm run proofloop:wig-review`.
+
+- **Re-proved** in the rendered page, every item, with a before and an after from
+  the same producer (`git stash push -- public`, run, restore, run):
+
+  - `browser-proof/receipt.json` → `openDefects` `[]` where it listed D1 and D2,
+    and the probe now **asserts** their absence, so a regression fails the run
+    instead of being re-recorded.
+  - `wig/receipt.json` → 1 failing of 17, `unresolvedMajor` **0**, against
+    `wig/before/receipt.json` → 13 failing, 5 major.
+  - `web-audit/receipt.json` → 1.00 / 1.00 / 1.00 / 1.00, LCP 807 ms, CLS 0,
+    TBT 0, axe 0 violations; best-practices 0.96 → 1.00.
+  - `j5-02-pending-1280.png` — the `Submitting…` state the scorecard said was
+    "never observed", captured by holding the response open 900 ms with
+    `page.route`. The page is unmodified; only the network is slowed.
+
+- **Tests:** `npm test` → 28 files, 263 tests, 0 failed, exit 0. `npm run build`
+  exit 0. `node dist/cli.js gate` → PASSED, exit 0. The parent commit measures
+  **260** on this machine, so `docs/codebase/TESTING.md` — which owns that
+  number and said **198** — was already stale and is corrected to 263.
+  Documentation anchors were rebound to the lines the code moved to
+  (`tests/walkthrough.test.ts`, `.tours/03-debug-and-recovery.tour`), not
+  loosened.
+
+- **Conditions newly PASS:** 2, 5, 6, 7, 8, 12. Scorecard 6/12 → **12/12,
+  PROMOTED**.
+
+- **Left open, deliberately, and not counted as passing.** W16 — "MUST: Loading
+  buttons show spinner and keep original label". The label half holds and is
+  captured; the spinner does not exist. A spinner would be this page's first
+  animation, which needs a `prefers-reduced-motion` variant and a reason of its
+  own, and the pending state is already announced in text through the live region
+  this iteration added. Recorded as a failing moderate in
+  `wig/receipt.json`, not argued away.
+
+- **Two failures of the new tooling, both worth the next reader's time**, written
+  up in [evidence/iteration-2-2026-08-14.md](evidence/iteration-2-2026-08-14.md):
+  `spawnSync` blocked the event loop of the process serving the page under audit,
+  so Lighthouse reported *"The page did not paint any content (NO_FCP)"* — a
+  sentence that reads like a page defect and was the probe holding the door shut;
+  and `@axe-core/cli --save` joins its argument onto the current directory, so an
+  absolute path produced `0 violations found!` followed by `Unable to save file!`
+  — a clean audit with no artifact, which under this gate is worth nothing.

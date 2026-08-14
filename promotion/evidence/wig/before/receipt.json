@@ -1,0 +1,294 @@
+{
+  "schema": "proofloop-wig-review-v1",
+  "producer": "scripts/wig-review.mjs (npm run proofloop:wig-review)",
+  "condition": "PROMOTION gate condition 7 — Web Interface Guidelines review",
+  "notALighthouseScore": "Condition 8's Lighthouse/axe run is a separate artifact at promotion/evidence/web-audit/. These rules are not scored by Lighthouse and a score cannot stand in for this review.",
+  "guidelines": {
+    "url": "https://vercel.com/design/guidelines",
+    "raw": "https://raw.githubusercontent.com/vercel-labs/web-interface-guidelines/main/AGENTS.md",
+    "fetched": "2026-08-13"
+  },
+  "capturedAt": "2026-08-14T03:03:50.237Z",
+  "base": "http://127.0.0.1:4909",
+  "node": "v22.22.2",
+  "judgement": "promotion/evidence/wig/REVIEW.md",
+  "findings": [
+    {
+      "id": "W1",
+      "section": "Interactions > Feedback",
+      "guideline": "MUST: Use polite `aria-live` for toasts/inline validation",
+      "severity": "major",
+      "status": "fail",
+      "measurement": {
+        "role": null,
+        "ariaLive": null,
+        "outerHTML": "<p class=\"status\" data-intake-status=\"\" hidden=\"\"></p>"
+      }
+    },
+    {
+      "id": "W2",
+      "section": "Content & Accessibility",
+      "guideline": "MUST: `<title>` matches current context",
+      "severity": "minor",
+      "status": "pass",
+      "measurement": {
+        "title": "Proof Loop"
+      }
+    },
+    {
+      "id": "W3",
+      "section": "Interactions > Targets & Input",
+      "guideline": "MUST: `touch-action: manipulation` to prevent double-tap zoom",
+      "severity": "moderate",
+      "status": "fail",
+      "measurement": [
+        {
+          "el": "target-input",
+          "touchAction": "auto"
+        },
+        {
+          "el": "target-submit",
+          "touchAction": "auto"
+        },
+        {
+          "el": "github-sso",
+          "touchAction": "auto"
+        }
+      ]
+    },
+    {
+      "id": "W4",
+      "section": "Interactions > Forms",
+      "guideline": "MUST: `autocomplete` + meaningful `name`; correct `type` and `inputmode`",
+      "severity": "moderate",
+      "status": "fail",
+      "measurement": {
+        "name": null,
+        "autocomplete": "url",
+        "type": "text",
+        "inputmode": "url",
+        "fontSizePx": 16,
+        "placeholder": "https://your-app.com or https://github.com/org/repo"
+      }
+    },
+    {
+      "id": "W5",
+      "section": "Interactions > Targets & Input",
+      "guideline": "MUST: Mobile `<input>` font-size ≥16px to prevent iOS zoom",
+      "severity": "moderate",
+      "status": "pass",
+      "measurement": {
+        "fontSizePx": 16
+      }
+    },
+    {
+      "id": "W6",
+      "section": "Content & Accessibility",
+      "guideline": "MUST: Use `…` character (not `...`)",
+      "severity": "minor",
+      "status": "fail",
+      "measurement": {
+        "literals": [
+          "\"Submitting...\""
+        ],
+        "placeholder": "https://your-app.com or https://github.com/org/repo",
+        "placeholderHasEllipsis": false
+      }
+    },
+    {
+      "id": "W7",
+      "section": "Dark Mode & Theming",
+      "guideline": "MUST: `color-scheme: dark` on `<html>` for dark themes",
+      "severity": "minor",
+      "status": "pass",
+      "measurement": {
+        "colorScheme": "dark",
+        "themeColor": null,
+        "bodyBackground": "rgb(11, 11, 13)"
+      }
+    },
+    {
+      "id": "W8",
+      "section": "Dark Mode & Theming",
+      "guideline": "SHOULD: `<meta name=\"theme-color\">` matches page background",
+      "severity": "minor",
+      "status": "fail",
+      "measurement": {
+        "colorScheme": "dark",
+        "themeColor": null,
+        "bodyBackground": "rgb(11, 11, 13)"
+      }
+    },
+    {
+      "id": "W9",
+      "section": "Interactions > Keyboard",
+      "guideline": "MUST: Visible focus rings (`:focus-visible`; group with `:focus-within`) — NEVER: `outline: none` without visible focus replacement",
+      "severity": "moderate",
+      "status": "fail",
+      "measurement": {
+        "tabOrder": [
+          "target-input",
+          "target-submit",
+          "github-sso"
+        ],
+        "rings": [
+          {
+            "testid": "target-input",
+            "outlineWidth": "2px",
+            "outlineStyle": "solid",
+            "borderColor": "rgb(242, 241, 237)"
+          },
+          {
+            "testid": "target-submit",
+            "outlineWidth": "2px",
+            "outlineStyle": "solid",
+            "borderColor": "rgb(217, 119, 87)"
+          },
+          {
+            "testid": "github-sso",
+            "outlineWidth": "0px",
+            "outlineStyle": "none",
+            "borderColor": "rgb(217, 119, 87)"
+          }
+        ]
+      }
+    },
+    {
+      "id": "W15",
+      "section": "Interactions > Forms",
+      "guideline": "MUST: Errors inline next to fields; on submit, focus first error",
+      "severity": "moderate",
+      "status": "fail",
+      "measurement": {
+        "focused": "target-submit",
+        "message": "Enter a URL or GitHub repo."
+      }
+    },
+    {
+      "id": "W16",
+      "section": "Interactions > Forms",
+      "guideline": "MUST: Loading buttons show spinner and keep original label",
+      "severity": "moderate",
+      "status": "fail",
+      "measurement": {
+        "definesKeyframes": false,
+        "definesSpinnerOnButton": false,
+        "labelHalf": "promotion/evidence/browser-proof/receipt.json -> journeys.J5.pending (submitDisabled true, label stays \"ProofLoop\", status reads \"Submitting…\")"
+      }
+    },
+    {
+      "id": "W17",
+      "section": "Interactions > Keyboard",
+      "guideline": "MUST: Full keyboard support per WAI-ARIA APG (a scrollable region must be reachable by keyboard)",
+      "severity": "major",
+      "status": "fail",
+      "measurement": {
+        "scrollablesInRefusedState": [
+          {
+            "selector": "pre.detail",
+            "tabIndex": -1,
+            "scrollHeight": 284,
+            "clientHeight": 218,
+            "accessibleName": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "W10",
+      "section": "Content & Accessibility",
+      "guideline": "MUST: Design empty/sparse/dense/error states — MUST: No dead ends; always offer next step/recovery",
+      "severity": "major",
+      "status": "fail",
+      "measurement": {
+        "statusText": "blocked",
+        "statusColor": "rgb(255, 177, 153)",
+        "statusKind": "blocked",
+        "detailFirst80": "{\n  \"status\": \"pending\",\n  \"host\": \"example.com\",\n  \"method\": \"well-known-token\"",
+        "screenshot": "promotion/evidence/wig/before/wig-blocked-state-1280.png"
+      }
+    },
+    {
+      "id": "W11",
+      "section": "Content & Accessibility",
+      "guideline": "MUST: Redundant status cues (not color-only); icons have text labels",
+      "severity": "major",
+      "status": "fail",
+      "measurement": {
+        "perKind": {
+          "github": {
+            "color": "rgb(229, 149, 121)",
+            "beforeContent": "none"
+          },
+          "queued": {
+            "color": "rgb(229, 149, 121)",
+            "beforeContent": "none"
+          },
+          "blocked": {
+            "color": "rgb(255, 177, 153)",
+            "beforeContent": "none"
+          },
+          "pending": {
+            "color": "rgb(156, 154, 146)",
+            "beforeContent": "none"
+          }
+        },
+        "distinctNonColorCues": 1
+      }
+    },
+    {
+      "id": "W12",
+      "section": "Layout",
+      "guideline": "MUST: Respect safe areas (`env(safe-area-inset-*)`)",
+      "severity": "moderate",
+      "status": "fail",
+      "measurement": {
+        "usesEnvSafeArea": false
+      }
+    },
+    {
+      "id": "W13",
+      "section": "Interactions > Targets & Input",
+      "guideline": "MUST: Hit target ≥24px (mobile ≥44px); if visual <24px, expand hit area",
+      "severity": "major",
+      "status": "fail",
+      "measurement": {
+        "targets": [
+          {
+            "el": "target-input",
+            "width": 344,
+            "height": 48
+          },
+          {
+            "el": "target-submit",
+            "width": 344,
+            "height": 48
+          },
+          {
+            "el": "github-sso",
+            "width": 362,
+            "height": 38
+          }
+        ],
+        "viewportWidth": 386,
+        "screenshot": "promotion/evidence/wig/before/wig-mobile-targets-0386.png"
+      }
+    },
+    {
+      "id": "W14",
+      "section": "Interactions > Targets & Input",
+      "guideline": "NEVER: Disable browser zoom (`user-scalable=no`, `maximum-scale=1`)",
+      "severity": "major",
+      "status": "pass",
+      "measurement": {
+        "viewportMeta": "width=device-width, initial-scale=1"
+      }
+    }
+  ],
+  "counts": {
+    "total": 17,
+    "failed": 13,
+    "unresolvedMajor": 5
+  },
+  "pass": false
+}

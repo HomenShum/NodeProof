@@ -8,6 +8,14 @@
       name="description"
       content="Paste a live URL or GitHub repo and Proof Loop will prepare a verified proof run."
     />
+    <!-- Matches --bg. Without it the browser chrome sits at a different shade than the page. -->
+    <meta name="theme-color" content="#0b0b0d" />
+    <!-- Inline so there is no /favicon.ico round trip: that 404 was the page's
+         only console error (Lighthouse errors-in-console, best-practices 0.96). -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%230b0b0d'/%3E%3Cpath d='M3.5 8.5l3 3 6-7' stroke='%23d97757' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"
+    />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
@@ -22,6 +30,7 @@
         <input
           data-intake-input
           data-testid="target-input"
+          name="target"
           type="text"
           inputmode="url"
           autocomplete="url"
@@ -35,8 +44,20 @@
       <a class="github-sso" data-github-sso data-testid="github-sso" href="/api/auth/github/start">
         Continue with GitHub
       </a>
-      <p class="status" data-intake-status hidden></p>
-      <pre class="detail" data-intake-detail hidden></pre>
+      <!-- Not `hidden`, and deliberately not collapsed when empty: a live region
+           has to be in the accessibility tree BEFORE its text changes, or the
+           change is never announced. Empty text IS the empty state. -->
+      <p class="status" data-intake-status role="status" aria-live="polite"></p>
+      <!-- Focusable on purpose: this box scrolls (284px of receipt in 218px of
+           room), and a scrolling region nobody can Tab to is a receipt a
+           keyboard-only user can only read the top of. -->
+      <pre
+        class="detail"
+        data-intake-detail
+        tabindex="0"
+        aria-label="Response detail"
+        hidden
+      ></pre>
     </main>
 
     <script src="/app.js" defer></script>
