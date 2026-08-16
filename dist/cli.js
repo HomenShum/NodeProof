@@ -37,6 +37,7 @@ const proofloopHooks_1 = require("./proofloopHooks");
 const proofloopCi_1 = require("./proofloopCi");
 const proofloopToolUse_1 = require("./proofloopToolUse");
 const receipts_1 = require("./receipts");
+const proofReceipt_1 = require("./proofReceipt");
 const mcp_1 = require("./mcp");
 const project_1 = require("./project");
 const runner_1 = require("./runner");
@@ -113,6 +114,8 @@ function usage() {
         "  report latest [--json]     latest gate report",
         "  charts latest              write local JSON/SVG proof charts",
         "  receipt verify --file <path>   verify app-produced proof receipts",
+        "  receipt envelope verify --file <path>   verify a proofloop.receipt/v1 envelope",
+        "  receipt schema [--json]        locate or print the proofloop.receipt/v1 JSON Schema",
         "  solo setup --source <path> [--agent codex|claude-code|both] [--install-deps] [--verify]",
         "  solo ingest|status|gate|resume   validate and inspect Solo interop evidence",
         "  solo attest --file <envelope> --gate-receipt <receipt> --out <receipt> --key-id <id>",
@@ -190,7 +193,7 @@ function runCli(argv) {
         case "charts":
             return runChartsCommand(positional[1], root);
         case "receipt":
-            return runReceiptCommand(positional[1], options, root);
+            return runReceiptCommand(positional[1], positional[2], options, root);
         case "solo":
             return runSoloCommand(positional[1], options, root);
         case "runner":
@@ -743,9 +746,36 @@ function runChartsCommand(sub, root) {
     console.log(`proofloop charts: wrote ${result.svgPath}`);
     return 0;
 }
-function runReceiptCommand(sub, options, root) {
-    if (sub !== "verify") {
-        console.error("proofloop receipt: expected `verify`.");
+function runReceiptCommand(sub, action, options, root) {
+    if (sub === "schema") {
+        if (action !== undefined) {
+            console.error("proofloop receipt schema: unexpected positional argument.");
+            return 2;
+        }
+        if (options.json === true)
+            console.log(JSON.stringify((0, proofReceipt_1.readProofReceiptSchema)(), null, 2));
+        else
+            console.log((0, proofReceipt_1.proofReceiptSchemaPath)());
+        return 0;
+    }
+    if (sub === "envelope") {
+        if (action !== "verify") {
+            console.error("proofloop receipt envelope: expected `verify`.");
+            return 2;
+        }
+        const filePath = str(options.file);
+        if (!filePath) {
+            console.error("proofloop receipt envelope verify: --file <path> is required.");
+            return 2;
+        }
+        return (0, proofReceipt_1.runProofReceiptEnvelopeVerify)({
+            root,
+            filePath,
+            json: options.json === true,
+        });
+    }
+    if (sub !== "verify" || action !== undefined) {
+        console.error("proofloop receipt: expected `verify`, `envelope verify`, or `schema`.");
         return 2;
     }
     const filePath = str(options.file);

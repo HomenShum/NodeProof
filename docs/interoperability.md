@@ -2,6 +2,11 @@
 
 Proof Loop stays the certification source of truth: deterministic gate receipts, tool-use logs, and runner receipts decide pass/fail. External orchestration and observability systems can mirror or launch work, but they do not replace Proof Loop receipts.
 
+Cross-system evidence should use the [`proofloop.receipt/v1` envelope](receipt-envelope-v1.md).
+Legacy schemas remain valid payloads inside the envelope; wrapping one never promotes its original
+pass claim. Only a top-level deterministic gate or official scorer can issue an authoritative
+verdict.
+
 ## Solo Founder Agent Builder
 
 Solo Founder supplies the RALPH methodology and durable .solo/ work journal. NodeProof imports its evidence through the versioned proofloop-solo-interop-v1 envelope and derives the authoritative gate without accepting Solo's pass claim.

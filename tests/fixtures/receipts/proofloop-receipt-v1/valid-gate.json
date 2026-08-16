@@ -1,0 +1,98 @@
+{
+  "$schema": "https://nodeproof.dev/schemas/proofloop-receipt-v1.schema.json",
+  "schema": "proofloop.receipt/v1",
+  "schemaVersion": 1,
+  "receiptId": "receipt-gate-pass",
+  "kind": "gate",
+  "createdAt": "2026-07-20T00:00:00.000Z",
+  "producer": {
+    "id": "proofloop",
+    "version": "0.3.0"
+  },
+  "subject": {
+    "type": "repository",
+    "id": "nodeproof",
+    "repository": {
+      "url": "https://github.com/HomenShum/NodeProof",
+      "candidateCommit": "1111111111111111111111111111111111111111",
+      "branch": "main",
+      "dirty": false
+    }
+  },
+  "claim": {
+    "text": "The configured repository gate passed.",
+    "boundary": "product_path",
+    "tier": "local_ready"
+  },
+  "verdict": {
+    "status": "passed",
+    "authority": "authoritative",
+    "decisionMethod": "deterministic_gate",
+    "decisiveCheckIds": ["unit-tests"],
+    "summary": "The deterministic unit-test gate exited successfully."
+  },
+  "checks": [
+    {
+      "id": "unit-tests",
+      "status": "passed",
+      "role": "decisive",
+      "method": "deterministic",
+      "summary": "npm test exited 0.",
+      "evidenceRefs": ["unit-tests-output"],
+      "durationMs": 1234,
+      "exitCode": 0
+    }
+  ],
+  "evidence": [
+    {
+      "id": "unit-tests-output",
+      "kind": "command-result",
+      "inline": {
+        "command": "npm test",
+        "exitCode": 0,
+        "status": "passed"
+      },
+      "sha256": "1083dc2133a47aed3d14ec88d94f11242c8b78d394f21feee464d511cf26b7ec",
+      "hashMethod": "canonical-json-sha256",
+      "mediaType": "application/json",
+      "visibility": "team",
+      "redacted": true
+    }
+  ],
+  "payload": {
+    "schema": "proofloop-gate-v1",
+    "version": 1,
+    "mode": "inline",
+    "data": {
+      "schema": "proofloop-gate-v1",
+      "status": "passed",
+      "checks": [
+        {
+          "name": "unit-tests",
+          "command": "npm test",
+          "pass": true,
+          "exitCode": 0,
+          "ms": 1234
+        }
+      ],
+      "source": "config-checks"
+    },
+    "sha256": "6acf9b0872de320d3fbbf92b58c0fb77607e8644d9f58b432f429134efc8fc39",
+    "hashMethod": "canonical-json-sha256"
+  },
+  "timing": {
+    "durationMs": 1234,
+    "phases": [
+      {
+        "id": "unit-tests",
+        "durationMs": 1234
+      }
+    ]
+  },
+  "privacy": {
+    "visibility": "team",
+    "redacted": true,
+    "containsPersonalData": false,
+    "externalEgress": false
+  }
+}

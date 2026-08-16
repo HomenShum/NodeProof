@@ -1,0 +1,56 @@
+{
+  "schema": "proofloop.receipt/v1",
+  "schemaVersion": 1,
+  "receiptId": "receipt-invalid-failed-check",
+  "kind": "gate",
+  "createdAt": "2026-07-20T00:06:00.000Z",
+  "producer": {
+    "id": "proofloop",
+    "version": "0.3.0"
+  },
+  "subject": {
+    "type": "repository",
+    "id": "nodeproof"
+  },
+  "verdict": {
+    "status": "passed",
+    "authority": "authoritative",
+    "decisionMethod": "deterministic_gate",
+    "decisiveCheckIds": ["unit-tests"],
+    "summary": "This must fail because the decisive check failed."
+  },
+  "checks": [
+    {
+      "id": "unit-tests",
+      "status": "failed",
+      "role": "decisive",
+      "method": "deterministic",
+      "summary": "npm test exited 1.",
+      "evidenceRefs": ["unit-tests-output"],
+      "exitCode": 1
+    }
+  ],
+  "evidence": [
+    {
+      "id": "unit-tests-output",
+      "kind": "command-result",
+      "inline": {
+        "command": "npm test",
+        "exitCode": 1
+      },
+      "sha256": "8ee927df2893d808a6726a83be8aee673eef0220c3dae83b203c49b0c58a1117",
+      "hashMethod": "canonical-json-sha256"
+    }
+  ],
+  "payload": {
+    "schema": "proofloop-gate-v1",
+    "version": 1,
+    "mode": "inline",
+    "data": {
+      "schema": "proofloop-gate-v1",
+      "status": "failed"
+    },
+    "sha256": "25918622e120c5dccbda9d6957ab5dedb82b44a8dc121ccaeddaf4e728dbed86",
+    "hashMethod": "canonical-json-sha256"
+  }
+}

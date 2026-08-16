@@ -1,0 +1,81 @@
+{
+  "schema": "proofloop.receipt/v1",
+  "schemaVersion": 1,
+  "receiptId": "receipt-ui-qa",
+  "kind": "ui-qa",
+  "createdAt": "2026-07-20T00:03:00.000Z",
+  "producer": {
+    "id": "agentic-ui-qa",
+    "version": "0.1.0"
+  },
+  "subject": {
+    "type": "deployment",
+    "id": "ui-preview",
+    "targetUrl": "https://example.com/preview"
+  },
+  "verdict": {
+    "status": "passed",
+    "authority": "authoritative",
+    "decisionMethod": "deterministic_gate",
+    "decisiveCheckIds": ["live-signal"],
+    "summary": "The deterministic live signal passed; the visual judge remains advisory."
+  },
+  "checks": [
+    {
+      "id": "live-signal",
+      "status": "passed",
+      "role": "decisive",
+      "method": "deterministic",
+      "summary": "Expected production DOM signals were present.",
+      "evidenceRefs": ["dom-observation"]
+    },
+    {
+      "id": "visual-judge",
+      "status": "passed",
+      "role": "advisory",
+      "method": "model_judge",
+      "summary": "The visual judge reported no P0 or P1 finding.",
+      "evidenceRefs": ["visual-judge-output"]
+    }
+  ],
+  "evidence": [
+    {
+      "id": "dom-observation",
+      "kind": "dom-assertion",
+      "inline": {
+        "selector": "[data-testid=run-status]",
+        "text": "completed",
+        "present": true
+      },
+      "sha256": "8f9747033f3bf137959f88b559c7689af7386496d8579e9ca47bc6c7333fe742",
+      "hashMethod": "canonical-json-sha256"
+    },
+    {
+      "id": "visual-judge-output",
+      "kind": "model-judge-output",
+      "inline": {
+        "model": "vision-reviewer",
+        "verdict": "publish",
+        "p0": 0,
+        "p1": 0
+      },
+      "sha256": "e413819b3c7b3cdbccd6fc47fb1c1eb04ef73f712e2b674256423a5c441df558",
+      "hashMethod": "canonical-json-sha256"
+    }
+  ],
+  "payload": {
+    "schema": "agentic-ui-qa-gate-v1",
+    "version": 1,
+    "mode": "inline",
+    "data": {
+      "schema": "agentic-ui-qa-gate-v1",
+      "status": "passed",
+      "blocks": [],
+      "prettify": {
+        "advisory": true
+      }
+    },
+    "sha256": "d1e5e3d26647d16be770db418915c486ba049b359f33f38db4a7c108dc38f5e9",
+    "hashMethod": "canonical-json-sha256"
+  }
+}
