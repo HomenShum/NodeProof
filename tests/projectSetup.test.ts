@@ -29,6 +29,43 @@ function write(path: string, content: string): void {
 }
 
 describe("agent-friendly project setup", () => {
+  it("a monorepo developer can rediscover explicit review contracts without trusting incidental markup or stale files", () => {
+    const root = tempRoot();
+    const app = join(root, "apps", "web", "public");
+    const publicDir = join(root, "public");
+    const dependency = join(root, "apps", "web", "node_modules", "widget");
+    for (const dir of [app, publicDir, dependency]) mkdirSync(dir, { recursive: true });
+    const reviewPath = join(app, "index.html");
+    // The NodeKit consumer already declares and verifies this proposal boundary.
+    const review = '<aside id="review" data-nodekit-review-boundary="proposal"><button>Approve</button></aside>';
+    write(reviewPath, review + '<article id="artifact" data-nodekit-artifact-id="dynamic-123"></article>');
+    write(join(publicDir, "index.html"), '<button data-testid="request-proof">Request proof</button><div id="incidental"></div>');
+    write(join(dependency, "example.html"), '<button data-testid="dependency-example">Demo</button>');
+
+    const expected = discoverUiContracts(root);
+    expect(expected.map((contract) => contract.id)).toEqual(["proposal", "request-proof"]);
+    expect(expected.find((contract) => contract.id === "proposal")).toMatchObject({
+      selector: '[data-nodekit-review-boundary="proposal"]',
+      source: "apps/web/public/index.html",
+    });
+    expect(expected.find((contract) => contract.id === "request-proof")?.source).toBe("public/index.html");
+    for (let scan = 0; scan < 5; scan++) expect(discoverUiContracts(root)).toEqual(expected);
+    rmSync(reviewPath);
+    expect(discoverUiContracts(root).map((contract) => contract.id)).toEqual(["request-proof"]);
+    write(reviewPath, review);
+    expect(discoverUiContracts(root)).toEqual(expected);
+
+    // A large workspace still respects the existing 800-source-file scan budget.
+    const bulk = join(root, "apps", "bulk");
+    mkdirSync(bulk);
+    for (let index = 0; index < 805; index++) {
+      write(join(bulk, String(index).padStart(4, "0") + ".html"), `<button data-testid="bounded-${index}">Review</button>`);
+    }
+    const bounded = discoverUiContracts(root);
+    expect(bounded).toHaveLength(800);
+    expect(bounded.every((contract) => contract.source.startsWith("apps/bulk/"))).toBe(true);
+  });
+
   it("init --agent all --live writes docs, manifest, package aliases, and live scaffold", () => {
     const root = tempRoot();
     write(

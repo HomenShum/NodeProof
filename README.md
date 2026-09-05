@@ -31,6 +31,8 @@ cloning it, read every `node dist/cli.js` below as `npx proofloop`.
 
 Zero runtime dependencies. Node >= 20. Works on any repo.
 
+For an existing application, read the [consumer handoff](docs/CONSUMER_HANDOFF.md): exact local-package installation, preserved agent ownership, real gate failure/recovery, and the boundary between setup reports and proof.
+
 > **New to this codebase?** Read [`docs/START_HERE.md`](docs/START_HERE.md)
 > instead of this file. It walks one real user action through the code in the
 > order it executes, naming every file and line. Then open `.tours/` in VS Code

@@ -310,7 +310,7 @@ function discoverUiContracts(root) {
     const resolved = (0, node_path_1.resolve)(root);
     const files = collectCandidateFiles(resolved);
     const byId = new Map();
-    const attrPattern = /data-(testid|proofloop)\s*=\s*["'`]([^"'`]+)["'`]/g;
+    const attrPattern = /data-(testid|proofloop|nodekit-review-boundary)\s*=\s*["'`]([^"'`]+)["'`]/g;
     for (const file of files) {
         let text = "";
         try {
@@ -320,7 +320,7 @@ function discoverUiContracts(root) {
             continue;
         }
         for (const match of text.matchAll(attrPattern)) {
-            const attr = match[1] === "proofloop" ? "data-proofloop" : "data-testid";
+            const attr = `data-${match[1]}`;
             const id = match[2].trim();
             if (!id || byId.has(id))
                 continue;
@@ -684,7 +684,7 @@ function hasProofloopGithubWorkflow(root) {
     return false;
 }
 function collectCandidateFiles(root) {
-    const roots = ["src", "app", "pages", "components", "e2e", "tests", "test", "proofloop"]
+    const roots = ["src", "app", "apps", "public", "pages", "components", "e2e", "tests", "test", "proofloop"]
         .map((name) => (0, node_path_1.join)(root, name))
         .filter((path) => (0, node_fs_1.existsSync)(path));
     const files = [];
