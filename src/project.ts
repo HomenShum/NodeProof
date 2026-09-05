@@ -345,7 +345,7 @@ export function discoverUiContracts(root: string): UiContract[] {
   const resolved = resolve(root);
   const files = collectCandidateFiles(resolved);
   const byId = new Map<string, UiContract>();
-  const attrPattern = /data-(testid|proofloop)\s*=\s*["'`]([^"'`]+)["'`]/g;
+  const attrPattern = /data-(testid|proofloop|nodekit-review-boundary)\s*=\s*["'`]([^"'`]+)["'`]/g;
   for (const file of files) {
     let text = "";
     try {
@@ -354,7 +354,7 @@ export function discoverUiContracts(root: string): UiContract[] {
       continue;
     }
     for (const match of text.matchAll(attrPattern)) {
-      const attr = match[1] === "proofloop" ? "data-proofloop" : "data-testid";
+      const attr = `data-${match[1]}`;
       const id = match[2].trim();
       if (!id || byId.has(id)) continue;
       const windowText = text.slice(Math.max(0, match.index - 800), Math.min(text.length, match.index + 1200));
@@ -704,7 +704,7 @@ function hasProofloopGithubWorkflow(root: string): boolean {
 }
 
 function collectCandidateFiles(root: string): string[] {
-  const roots = ["src", "app", "pages", "components", "e2e", "tests", "test", "proofloop"]
+  const roots = ["src", "app", "apps", "public", "pages", "components", "e2e", "tests", "test", "proofloop"]
     .map((name) => join(root, name))
     .filter((path) => existsSync(path));
   const files: string[] = [];
