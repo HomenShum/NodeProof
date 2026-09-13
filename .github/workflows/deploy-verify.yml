@@ -1,0 +1,42 @@
+name: Deploy verify
+
+# Vercel's GitHub integration posts deployment_status events with no secrets needed to read
+# them. This repo's own deployments (checked via
+# `gh api repos/HomenShum/NodeProof/deployments?per_page=10` and each deployment's
+# `/statuses`) show every production deploy's environment as the bare string "Production" —
+# no sibling Vercel project shares this repo, so no name-contains filter is needed here
+# (unlike NodeVoice's deploy-verify.yml, which does share a repo with local-collab-mvp).
+on:
+  deployment_status:
+
+permissions:
+  contents: read
+  deployments: read
+
+jobs:
+  verify-live-identity:
+    if: >-
+      github.event.deployment_status.state == 'success' &&
+      github.event.deployment_status.environment == 'Production'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Poll the live meta tag for the deployed commit sha
+        env:
+          EXPECTED_SHA: ${{ github.event.deployment.sha }}
+          LIVE_URL: https://proofloop.live/
+        run: |
+          set -euo pipefail
+          deadline=$((SECONDS + 180))
+          found=""
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            body="$(curl -fsS --max-time 10 "$LIVE_URL" || true)"
+            found="$(printf '%s' "$body" | grep -oE '<meta name="proofloop-build-sha" content="[0-9a-f]{40}"' | grep -oE '[0-9a-f]{40}' || true)"
+            if [ "$found" = "$EXPECTED_SHA" ]; then
+              echo "Live meta matches deployed commit: $found"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::proofloop-build-sha never matched the deployed commit ($EXPECTED_SHA); last seen: '${found:-<none>}'" >&2
+          exit 1

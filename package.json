@@ -39,7 +39,7 @@
     "doctor": "npm run proofloop:doctor",
     "check": "npm test && npm audit --omit=dev",
     "proof": "npm run proofloop:maturity",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node scripts/stamp-build-sha.mjs",
     "prepublishOnly": "npm run build",
     "pretest": "npm run build",
     "test": "vitest run",
