@@ -18,6 +18,7 @@ export * from "./project";
 export * from "./mcp";
 export * from "./runner";
 export * from "./layeredPlan";
+export * from "./transferCheck";
 export * from "./targetPlan";
 export * from "./hosted";
 export * from "./maturity";

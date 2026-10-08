@@ -9,6 +9,7 @@ exports.runCli = runCli;
  *   proofloop init                     detect the app + write proofloop.config.json
  *   proofloop doctor                   environment + readiness report (exit 0)
  *   proofloop gate [--check]           run gate.checks (0 pass / 1 fail / 2 unusable)
+ *   proofloop transfer-check sample|gate   compare supplied result lanes (not provenance)
  *   proofloop hooks <install|uninstall|status>   Claude Code Stop/PreToolUse/PostToolUse hooks
  *   proofloop tooluse <verify|init>    expected-tool-use contracts
  *   proofloop ci install github        write the GitHub Actions gate workflow
@@ -48,6 +49,7 @@ const agentAdapters_1 = require("./agentAdapters");
 const agentLoop_1 = require("./agentLoop");
 const codexRelaunch_1 = require("./codexRelaunch");
 const providerSetup_1 = require("./providerSetup");
+const transferCheck_1 = require("./transferCheck");
 const soloInterop_1 = require("./soloInterop");
 const soloTrust_1 = require("./soloTrust");
 const soloSetup_1 = require("./soloSetup");
@@ -101,6 +103,7 @@ function usage() {
         "  init                       detect the app + write a starter proofloop.config.json",
         "  doctor                     environment + readiness report",
         "  gate [--check]             run gate.checks (exit 0 pass / 1 fail / 2 unusable)",
+        "  transfer-check sample|gate   sample/compare supplied lane files (10MiB max; provenance unverified)",
         "  hooks install|uninstall|status   Claude Code Stop/PreToolUse/PostToolUse hooks",
         "  tooluse verify|init        expected-tool-use contracts",
         "  ci install github          write the GitHub Actions gate workflow",
@@ -159,6 +162,8 @@ function runCli(argv) {
             return (0, doctor_1.runDoctor)({ root, json: options.json === true });
         case "gate":
             return (0, gate_1.runGateCli)({ root, check: options.check === true });
+        case "transfer-check":
+            return (0, transferCheck_1.runTransferCheckCommand)(positional[1], options, root);
         case "prompt": {
             console.log((0, prompt_1.proofloopKickoffPrompt)());
             return 0;

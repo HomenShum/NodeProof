@@ -5,14 +5,14 @@
   "steps": [
     {
       "file": "src/cli.ts",
-      "line": 185,
+      "line": 188,
       "title": "Entry",
       "description": "Everything starts here. One switch on the first argument — no router, no plugin registry. `dist/cli.js` is the compiled form of this file and is what `package.json` → `bin.proofloop` points at.\n\nNote `root`: every command operates on a repo directory, defaulting to the current one, overridable with `--dir`.",
       "pattern": "^\\s*export function runCli\\(argv: string\\[\\]\\): number \\| Promise<number> \\{\\s*$"
     },
     {
       "file": "src/cli.ts",
-      "line": 210,
+      "line": 213,
       "title": "The command we are following",
       "description": "`proofloop gate` — the primary user action. `--check` means 'read the last verdict, run nothing', which is the mode the Stop hook uses.",
       "pattern": "^\\s*case \"gate\":\\s*$"

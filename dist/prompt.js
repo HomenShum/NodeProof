@@ -33,6 +33,7 @@ exports.PACKAGE_COMMANDS = [
     "mcp",
     "prompt",
     "this-repo",
+    "transfer-check",
 ];
 function proofloopKickoffPrompt() {
     return [
@@ -55,6 +56,8 @@ function proofloopKickoffPrompt() {
         "   an expected-tool-use contract (e.g. an MCP agent MUST fetch before it sends, MUST NOT delete).",
         "8. Check where you are anytime: `proofloop doctor` reports environment + readiness. Optional:",
         "   `proofloop mcp` exposes the same compact read-only surfaces to MCP clients; keep CLI primary.",
+        "9. Compare supplied result lanes with `proofloop transfer-check sample` then `proofloop transfer-check gate`.",
+        "   Agreement does not establish live execution, row provenance, or seeded sample selection.",
         "",
         "Mechanical enforcement for Claude Code is available: `proofloop hooks install` wires a Stop hook",
         "that refuses fake \"done\" until the gate passes, a PreToolUse guard against editing the gate/proof",

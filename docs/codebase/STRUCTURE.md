@@ -31,13 +31,13 @@ edit `src/` and run `npm run build`.**
 is a 22-file reference library that ships with the package and is listed as a
 protected path in `proofloop.config.json`. Do not fold it into this packet.
 
-## `src/` — 30 modules
+## `src/` — 31 modules
 
 Read them in this order if you are new; the first four are the whole product.
 
 | Module | Lines | What it is for |
 |---|---:|---|
-| `cli.ts` | 1053 | argv → one of ~28 commands. The only entry point. |
+| `cli.ts` | 1059 | argv → one of ~28 commands. The only entry point. |
 | `gate.ts` | 201 | **run the checks, write the verdict.** The product in one file. |
 | `config.ts` | 92 | the only reader of `proofloop.config.json`; untrusted JSON → typed |
 | `proofloopHooks.ts` | 1079 | install/uninstall the Stop, PreToolUse and PostToolUse hooks; generates the standalone hook scripts |
@@ -51,10 +51,11 @@ Read them in this order if you are new; the first four are the whole product.
 | `detect.ts` | 133 | what kind of app is this, and which agent CLIs are on PATH |
 | `doctor.ts` | 198 | readiness report with exact fix commands; the zero-key `npm run demo` |
 | `project.ts` | 735 | the paperwork around a repo: manifest, agent docs, templates, UI contracts, report, **resume** |
-| `prompt.ts` | 61 | the canonical one-prompt kickoff text |
+| `prompt.ts` | 64 | the canonical one-prompt kickoff text |
 | `proofloopCi.ts` | 83 | write the GitHub Actions gate workflow into a user's repo |
 | `runner.ts` | 892 | durable append-only task runner: lock, ledger, resume, budget |
 | `layeredPlan.ts` | 207 | a two-layer certification variant of a runner plan |
+| `transferCheck.ts` | 559 | seeded sampling and agreement of supplied verdict rows; provenance remains unverified |
 | `targetPlan.ts` | 751 | given a repo or URL, recommend which proof families to run |
 | `contextReport.ts` | 144 | the markdown handoff report an agent reads to start cold |
 | `maturity.ts` | 713 | score the repo 0–5 on agent-era readiness from file evidence |
@@ -66,7 +67,7 @@ Read them in this order if you are new; the first four are the whole product.
 | `soloTrust.ts` | 214 | sign and verify trust receipts (Ed25519 via `node:crypto`) |
 | `providerSetup.ts` | 242 | write setup receipts for optional external providers |
 | `thisRepo.ts` | 117 | `proofloop this-repo` — point the whole flow at the current repository |
-| `index.ts` | 34 | the published API surface: `export *` of everything above |
+| `index.ts` | 35 | the published API surface: `export *` of everything above |
 
 ## Where state lives
 
