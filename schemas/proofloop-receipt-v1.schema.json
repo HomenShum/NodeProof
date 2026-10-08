@@ -1,0 +1,394 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nodeproof.dev/schemas/proofloop-receipt-v1.schema.json",
+  "title": "ProofLoop Receipt Envelope v1",
+  "description": "Canonical transport envelope for ProofLoop evidence. Wrapped payloads never transfer verdict authority implicitly: only top-level deterministic gates or official scorers may produce an authoritative verdict.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schemaVersion",
+    "receiptId",
+    "kind",
+    "createdAt",
+    "producer",
+    "subject",
+    "verdict",
+    "checks",
+    "evidence",
+    "payload"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "format": "uri"
+    },
+    "schema": {
+      "const": "proofloop.receipt/v1"
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "receiptId": {
+      "$ref": "#/$defs/id"
+    },
+    "kind": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._/-]{0,127}$"
+    },
+    "createdAt": {
+      "$ref": "#/$defs/dateTime"
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "version": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "runtime": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "configHash": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id"],
+      "properties": {
+        "type": {
+          "enum": ["repository", "deployment", "run", "workflow", "artifact", "evaluation", "application"]
+        },
+        "id": { "$ref": "#/$defs/id" },
+        "runId": { "$ref": "#/$defs/id" },
+        "artifactId": { "$ref": "#/$defs/id" },
+        "targetUrl": { "type": "string", "format": "uri" },
+        "repository": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "url": { "type": "string", "minLength": 1, "maxLength": 2048 },
+            "baseCommit": { "$ref": "#/$defs/gitSha" },
+            "candidateCommit": { "$ref": "#/$defs/gitSha" },
+            "branch": { "type": "string", "minLength": 1, "maxLength": 512 },
+            "dirty": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "boundary"],
+      "properties": {
+        "text": { "type": "string", "minLength": 1, "maxLength": 10000 },
+        "boundary": { "enum": ["product_path", "proxy", "official", "internal"] },
+        "tier": { "enum": ["local_ready", "team_ready", "certification_ready"] }
+      }
+    },
+    "verdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "authority", "decisionMethod", "decisiveCheckIds", "summary"],
+      "properties": {
+        "status": { "enum": ["passed", "failed", "blocked", "incomplete", "error", "unknown"] },
+        "authority": { "enum": ["authoritative", "advisory", "informational"] },
+        "decisionMethod": {
+          "enum": ["deterministic_gate", "official_scorer", "model_judge", "human_review", "external_claim", "none"]
+        },
+        "decisiveCheckIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 10000 }
+      }
+    },
+    "checks": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": { "$ref": "#/$defs/check" }
+    },
+    "evidence": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": { "$ref": "#/$defs/resource" }
+    },
+    "artifacts": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": { "$ref": "#/$defs/resource" }
+    },
+    "payload": {
+      "$ref": "#/$defs/payload"
+    },
+    "lineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "parentReceiptIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "sourceReceiptIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "migration": { "type": "string", "minLength": 1, "maxLength": 512 }
+      }
+    },
+    "timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "startedAt": { "$ref": "#/$defs/dateTime" },
+        "completedAt": { "$ref": "#/$defs/dateTime" },
+        "durationMs": { "type": "integer", "minimum": 0 },
+        "phases": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "durationMs"],
+            "properties": {
+              "id": { "$ref": "#/$defs/id" },
+              "startedAt": { "$ref": "#/$defs/dateTime" },
+              "completedAt": { "$ref": "#/$defs/dateTime" },
+              "durationMs": { "type": "integer", "minimum": 0 }
+            }
+          }
+        }
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "maxUsd": { "type": "number", "minimum": 0 },
+        "spentUsd": { "type": "number", "minimum": 0 },
+        "maxRuntimeMs": { "type": "integer", "minimum": 0 },
+        "maxModelCalls": { "type": "integer", "minimum": 0 },
+        "modelCalls": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["visibility", "redacted"],
+      "properties": {
+        "visibility": { "enum": ["private", "team", "public"] },
+        "redacted": { "type": "boolean" },
+        "containsPersonalData": { "type": "boolean" },
+        "externalEgress": { "type": "boolean" }
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "verdict": {
+            "properties": { "authority": { "const": "authoritative" } },
+            "required": ["authority"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "verdict": {
+            "properties": {
+              "status": { "enum": ["passed", "failed", "blocked", "error"] },
+              "decisionMethod": { "enum": ["deterministic_gate", "official_scorer"] },
+              "decisiveCheckIds": { "minItems": 1 }
+            }
+          },
+          "checks": { "minItems": 1 },
+          "evidence": { "minItems": 1 }
+        }
+      },
+      "else": {
+        "properties": {
+          "verdict": {
+            "properties": { "decisiveCheckIds": { "maxItems": 0 } }
+          },
+          "checks": {
+            "items": {
+              "properties": { "role": { "const": "advisory" } }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "verdict": {
+            "properties": { "authority": { "const": "informational" } },
+            "required": ["authority"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "verdict": {
+            "properties": {
+              "status": { "enum": ["incomplete", "unknown"] },
+              "decisionMethod": { "const": "none" }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "gitSha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40,64}$"
+    },
+    "dateTime": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^(?![A-Za-z]:)(?![/\\\\])(?!.*(?:^|[/\\\\])\\.\\.(?:[/\\\\]|$)).+$"
+    },
+    "jsonValue": {
+      "anyOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "number" },
+        { "type": "string" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValue" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValue" } }
+      ]
+    },
+    "resource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "sha256", "hashMethod"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "type": "string", "pattern": "^[a-z][a-z0-9._/-]{0,127}$" },
+        "description": { "type": "string", "maxLength": 4000 },
+        "path": { "$ref": "#/$defs/relativePath" },
+        "uri": { "type": "string", "format": "uri" },
+        "inline": { "$ref": "#/$defs/jsonValue" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "hashMethod": { "enum": ["raw-bytes-sha256", "canonical-json-sha256", "utf8-sha256"] },
+        "mediaType": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "visibility": { "enum": ["private", "team", "public"] },
+        "redacted": { "type": "boolean" }
+      },
+      "oneOf": [
+        { "required": ["path"], "not": { "anyOf": [{ "required": ["uri"] }, { "required": ["inline"] }] } },
+        { "required": ["uri"], "not": { "anyOf": [{ "required": ["path"] }, { "required": ["inline"] }] } },
+        { "required": ["inline"], "not": { "anyOf": [{ "required": ["path"] }, { "required": ["uri"] }] } }
+      ]
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status", "role", "method", "summary", "evidenceRefs"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "status": { "enum": ["passed", "failed", "blocked", "error", "skipped", "unknown"] },
+        "role": { "enum": ["decisive", "advisory"] },
+        "method": { "enum": ["deterministic", "official_scorer", "model_judge", "human_review", "external"] },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 10000 },
+        "evidenceRefs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "durationMs": { "type": "integer", "minimum": 0 },
+        "exitCode": { "type": "integer" },
+        "score": { "type": "number" },
+        "threshold": { "type": "number" },
+        "scorer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "version"],
+          "properties": {
+            "name": { "type": "string", "minLength": 1, "maxLength": 256 },
+            "version": { "type": "string", "minLength": 1, "maxLength": 256 },
+            "digest": { "$ref": "#/$defs/sha256" }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "role": { "const": "decisive" } }, "required": ["role"] },
+          "then": {
+            "properties": {
+              "method": { "enum": ["deterministic", "official_scorer"] },
+              "evidenceRefs": { "minItems": 1 }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "method": { "const": "official_scorer" } }, "required": ["method"] },
+          "then": {
+            "required": ["scorer"],
+            "properties": {
+              "scorer": { "required": ["name", "version", "digest"] }
+            }
+          }
+        }
+      ]
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "mode", "sha256", "hashMethod"],
+      "properties": {
+        "schema": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "version": {
+          "anyOf": [
+            { "type": "string", "minLength": 1, "maxLength": 128 },
+            { "type": "integer", "minimum": 0 }
+          ]
+        },
+        "mode": { "enum": ["inline", "reference"] },
+        "data": { "$ref": "#/$defs/jsonValue" },
+        "ref": { "$ref": "#/$defs/relativePath" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "hashMethod": { "enum": ["raw-bytes-sha256", "canonical-json-sha256"] }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "mode": { "const": "inline" },
+            "hashMethod": { "const": "canonical-json-sha256" }
+          },
+          "required": ["data"],
+          "not": { "required": ["ref"] }
+        },
+        {
+          "properties": {
+            "mode": { "const": "reference" },
+            "hashMethod": { "const": "raw-bytes-sha256" }
+          },
+          "required": ["ref"],
+          "not": { "required": ["data"] }
+        }
+      ]
+    }
+  }
+}

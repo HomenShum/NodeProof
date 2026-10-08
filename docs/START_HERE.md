@@ -58,7 +58,7 @@ next, so you can put this page down at any point and keep going in the editor.
 
 **File:** `src/cli.ts`
 **Symbol:** `runCli`
-**Called by:** `dist/cli.js` when run as a program (`package.json` → `bin.proofloop`), guarded by `require.main === module` at `src/cli.ts:1052` so importing the module never runs it
+**Called by:** `dist/cli.js` when run as a program (`package.json` → `bin.proofloop`), guarded by `require.main === module` at `src/cli.ts:1158` so importing the module never runs it
 **Calls next:** one of ~28 command handlers; for this walkthrough, `runGateCli`
 
 **Why this exists**
@@ -83,7 +83,7 @@ export function runCli(argv: string[]): number | Promise<number> {
 **Output** — a process exit code (`number`), or a `Promise<number>` for the
 async commands.
 **Failure behavior** — an unknown command prints usage to stderr and returns 2.
-An exception anywhere below is caught at `src/cli.ts:1055` and also becomes
+An exception anywhere below is caught at `src/cli.ts:1161` and also becomes
 exit 2.
 **Next** — Step 2, `runGateCli`.
 
@@ -165,7 +165,7 @@ gate against a broken config would quietly prove nothing.
 
 **File:** `src/agentLoop.ts`
 **Symbol:** `runProofloopAgentLoop`
-**Called by:** `runCli` case `"codex-loop"` → `runCodexLoopCommand` (`src/cli.ts:505`)
+**Called by:** `runCli` case `"codex-loop"` → `runCodexLoopCommand` (`src/cli.ts:519`)
 **Calls next:** `runGateCli` (Step 2), `buildAgentRepairPrompt`, `launchProofloopAgentAdapter` (`src/agentAdapters.ts`)
 
 **Why this exists**
@@ -227,7 +227,7 @@ them writes to the repository. That is the security boundary — an agent cannot
 use this server to change files.
 **Failure behavior** — an unknown method or malformed frame produces a JSON-RPC
 error object; the server keeps reading. `runCli` returns the sentinel
-`MCP_SERVER_RUNNING` (`src/cli.ts:101`) so the process is *not* exited while the
+`MCP_SERVER_RUNNING` (`src/cli.ts:105`) so the process is *not* exited while the
 server is serving.
 **Next** — Step 6, how tool calls are proven after the fact.
 
@@ -341,7 +341,7 @@ recorded as a failure with `exitCode: null`.
 
 **File:** `src/proofloopHooks.ts`
 **Symbol:** `stopGateScript` (line 504) — a generator that writes the standalone hook `.proofloop/hooks/stop-gate.mjs`; installed by `installProofloopHooks` (line 172)
-**Called by:** `runCli` case `"hooks"` → `runHooksCommand` (`src/cli.ts:964`)
+**Called by:** `runCli` case `"hooks"` → `runHooksCommand` (`src/cli.ts:1070`)
 **Calls next:** at runtime the generated script calls `proofloop gate --check` (Step 2, check mode) or reads the receipt directly
 
 **Why this exists**

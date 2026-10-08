@@ -5,7 +5,7 @@
   "steps": [
     {
       "file": "src/cli.ts",
-      "line": 964,
+      "line": 1070,
       "title": "Entry: proofloop hooks install",
       "description": "Writes three scripts into `.proofloop/hooks/` and registers them in the assistant's own settings file. Idempotent: re-running reports `(already present)` rather than duplicating entries.",
       "pattern": "^\\s*function runHooksCommand\\(sub: string \\| undefined, options: Record<string, string \\| boolean>, root: string\\): number \\{\\s*$"

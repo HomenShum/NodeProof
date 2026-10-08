@@ -1,0 +1,43 @@
+{
+  "schema": "proofloop.receipt/v1",
+  "schemaVersion": 1,
+  "receiptId": "receipt-hosted-plan",
+  "kind": "hosted-run-plan",
+  "createdAt": "2026-07-20T00:02:00.000Z",
+  "producer": {
+    "id": "proofloop-hosted",
+    "version": "0.3.0"
+  },
+  "subject": {
+    "type": "deployment",
+    "id": "example-app",
+    "runId": "hosted-example-1",
+    "targetUrl": "https://example.com"
+  },
+  "verdict": {
+    "status": "incomplete",
+    "authority": "informational",
+    "decisionMethod": "none",
+    "decisiveCheckIds": [],
+    "summary": "The hosted bundle is a plan; no worker verdict exists yet."
+  },
+  "checks": [],
+  "evidence": [],
+  "payload": {
+    "schema": "proofloop-hosted-run-bundle-v1",
+    "version": 1,
+    "mode": "inline",
+    "data": {
+      "schema": "proofloop-hosted-run-bundle-v1",
+      "runId": "hosted-example-1",
+      "permission": {
+        "status": "pending"
+      },
+      "runner": {
+        "mode": "external-managed-worker"
+      }
+    },
+    "sha256": "636f432b495fdda597838a264afb4a168e2148da5fecb98061aa48c92a7c17d4",
+    "hashMethod": "canonical-json-sha256"
+  }
+}

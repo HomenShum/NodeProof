@@ -31,6 +31,7 @@ exports.runTransferCheckCommand = runTransferCheckCommand;
  */
 const node_fs_1 = require("node:fs");
 const node_path_1 = require("node:path");
+const localProofFiles_1 = require("./localProofFiles");
 exports.TRANSFER_SAMPLE_SCHEMA = "proofloop-transfer-sample-v1";
 exports.TRANSFER_DIRECTION_LABELS = {
     "capability-pass-browser-fail": "suspected harness shortcut or product-path break -- capability claim suspect",
@@ -43,7 +44,6 @@ const DEFAULT_MIN_AGREEMENT = 0.9;
 const DEFAULT_MIN_OVERLAP = 5;
 /** Guard against float noise at exactly-threshold agreement (e.g. 9/10 vs 0.9). */
 const AGREEMENT_EPSILON = 1e-12;
-const MAX_TRANSFER_INPUT_BYTES = 10 * 1024 * 1024;
 // ---------------------------------------------------------------------------
 // lane readers (fail-closed: any surprise throws; the CLI maps throws to exit 2)
 // ---------------------------------------------------------------------------
@@ -54,29 +54,7 @@ function readTransferLaneResults(path, options = {}) {
     return readRunnerLedger(raw, path, options.ledgerModel);
 }
 function readTransferInput(path) {
-    const fd = (0, node_fs_1.openSync)(path, node_fs_1.constants.O_RDONLY | (node_fs_1.constants.O_NONBLOCK ?? 0));
-    try {
-        const stat = (0, node_fs_1.fstatSync)(fd);
-        if (!stat.isFile())
-            throw new Error(`lane input must be a regular file: ${path}`);
-        if (stat.size > MAX_TRANSFER_INPUT_BYTES)
-            throw new Error(`lane input exceeds ${MAX_TRANSFER_INPUT_BYTES}-byte limit: ${path}`);
-        // The extra byte detects growth after fstat without admitting an unbounded read.
-        const buffer = Buffer.alloc(MAX_TRANSFER_INPUT_BYTES + 1);
-        let bytes = 0;
-        while (bytes < buffer.length) {
-            const count = (0, node_fs_1.readSync)(fd, buffer, bytes, buffer.length - bytes, null);
-            if (count === 0)
-                break;
-            bytes += count;
-        }
-        if (bytes > MAX_TRANSFER_INPUT_BYTES)
-            throw new Error(`lane input exceeds ${MAX_TRANSFER_INPUT_BYTES}-byte limit: ${path}`);
-        return buffer.toString("utf8", 0, bytes);
-    }
-    finally {
-        (0, node_fs_1.closeSync)(fd);
-    }
+    return (0, localProofFiles_1.readBoundedRegularFile)(path, "lane input").toString("utf8");
 }
 function readReceiptsArray(raw, path) {
     let parsed;
