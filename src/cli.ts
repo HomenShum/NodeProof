@@ -5,6 +5,7 @@
  *   proofloop init                     detect the app + write proofloop.config.json
  *   proofloop doctor                   environment + readiness report (exit 0)
  *   proofloop gate [--check]           run gate.checks (0 pass / 1 fail / 2 unusable)
+ *   proofloop transfer-check sample|gate   compare supplied result lanes (not provenance)
  *   proofloop hooks <install|uninstall|status>   Claude Code Stop/PreToolUse/PostToolUse hooks
  *   proofloop tooluse <verify|init>    expected-tool-use contracts
  *   proofloop ci install github        write the GitHub Actions gate workflow
@@ -91,6 +92,7 @@ import {
   parseProofloopProviderId,
   setupProofloopProviders,
 } from "./providerSetup";
+import { runTransferCheckCommand } from "./transferCheck";
 import { runSoloInteropCli } from "./soloInterop";
 import { createSoloTrustReceipt, readSoloTrustReceipt, verifySoloTrustReceipt } from "./soloTrust";
 import { setupSolo, type SoloSetupAgents } from "./soloSetup";
@@ -146,6 +148,7 @@ function usage(): string {
     "  init                       detect the app + write a starter proofloop.config.json",
     "  doctor                     environment + readiness report",
     "  gate [--check]             run gate.checks (exit 0 pass / 1 fail / 2 unusable)",
+    "  transfer-check sample|gate   sample/compare supplied lane files (10MiB max; provenance unverified)",
     "  hooks install|uninstall|status   Claude Code Stop/PreToolUse/PostToolUse hooks",
     "  tooluse verify|init        expected-tool-use contracts",
     "  ci install github          write the GitHub Actions gate workflow",
@@ -209,6 +212,9 @@ export function runCli(argv: string[]): number | Promise<number> {
 
     case "gate":
       return runGateCli({ root, check: options.check === true });
+
+    case "transfer-check":
+      return runTransferCheckCommand(positional[1], options, root);
 
     case "prompt": {
       console.log(proofloopKickoffPrompt());

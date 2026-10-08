@@ -52,6 +52,39 @@ For an existing application, read the [consumer handoff](docs/CONSUMER_HANDOFF.m
 > architecture, conventions, integrations, testing, and the honest list of
 > what is still wrong ([CONCERNS.md](docs/codebase/CONCERNS.md)).
 
+## Compare supplied capability and browser results
+
+A developer or coding agent can compare task verdicts from two supplied files
+before repeating a capability claim. For example, a task that passes in a
+headless lane but fails in browser-labelled rows should trigger investigation.
+The agreement gate reports both disagreement directions as hypotheses; it
+cannot verify that either file came from a live agent or production browser.
+
+```bash
+node dist/cli.js transfer-check sample --capability capability.json --seed <commit-sha> --per-family 5 --out sample.json
+node dist/cli.js transfer-check gate --capability capability.json --browser browser.json --min-agreement 0.9 --min-overlap 5
+```
+
+Supply receipts arrays such as
+`[{"taskId":"banker.reconcile","model":"my-model","family":"banker","pass":false}]`,
+or `proofloop-runner-event-v1` JSONL (`task_completed` verdicts; last retry wins).
+Use `--model <label>` for ledger inputs. Each input must be a regular file at
+most **10 MiB**; oversized evidence is rejected, never truncated.
+
+Sampling preserves equal-seed/input output and includes capability failures
+where available. The gate joins `taskId` + `model` and requires overlap and
+agreement thresholds: exit **0** agrees, **1** diverges, **2** means unusable
+input or usage. A sample omitting all capability failures is refused unless
+`--allow-no-failure-overlap` is explicitly supplied, with the original warning.
+Agreement reports **row provenance and seeded sample selection as
+NOT_VERIFIED**. Choosing a seed does not authenticate the browser file.
+
+One sentence for the next reviewer: this command compares the rows you supply;
+it does not certify that a live application was tested.
+
+See the [transfer changelog](CHANGELOG/cli/transfer-agreement.md) for the
+matched baseline/new proof and its limits.
+
 ## Agent and Provider Interop
 
 Codex and Claude Code can install local hook enforcement; other hosts are represented as adapter receipts until a launch, trace-capture, and gate-enforcement surface exists:

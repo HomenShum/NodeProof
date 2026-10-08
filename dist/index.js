@@ -35,6 +35,7 @@ __exportStar(require("./project"), exports);
 __exportStar(require("./mcp"), exports);
 __exportStar(require("./runner"), exports);
 __exportStar(require("./layeredPlan"), exports);
+__exportStar(require("./transferCheck"), exports);
 __exportStar(require("./targetPlan"), exports);
 __exportStar(require("./hosted"), exports);
 __exportStar(require("./maturity"), exports);
