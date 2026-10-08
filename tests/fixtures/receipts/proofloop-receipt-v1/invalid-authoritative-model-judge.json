@@ -1,0 +1,53 @@
+{
+  "schema": "proofloop.receipt/v1",
+  "schemaVersion": 1,
+  "receiptId": "receipt-invalid-model-authority",
+  "kind": "ui-qa",
+  "createdAt": "2026-07-20T00:05:00.000Z",
+  "producer": {
+    "id": "visual-judge",
+    "version": "1.0.0"
+  },
+  "subject": {
+    "type": "deployment",
+    "id": "ui-preview"
+  },
+  "verdict": {
+    "status": "passed",
+    "authority": "authoritative",
+    "decisionMethod": "model_judge",
+    "decisiveCheckIds": ["visual-judge"],
+    "summary": "This must fail because a model judge cannot be authoritative."
+  },
+  "checks": [
+    {
+      "id": "visual-judge",
+      "status": "passed",
+      "role": "decisive",
+      "method": "model_judge",
+      "summary": "A model said the page looks correct.",
+      "evidenceRefs": ["model-output"]
+    }
+  ],
+  "evidence": [
+    {
+      "id": "model-output",
+      "kind": "model-judge-output",
+      "inline": {
+        "verdict": "pass"
+      },
+      "sha256": "f5d6f98b22d346a32b0be68e2561b17913ff64e9b15a7c1e12f41b7c697ae1ac",
+      "hashMethod": "canonical-json-sha256"
+    }
+  ],
+  "payload": {
+    "schema": "visual-judge/v1",
+    "version": 1,
+    "mode": "inline",
+    "data": {
+      "verdict": "pass"
+    },
+    "sha256": "f5d6f98b22d346a32b0be68e2561b17913ff64e9b15a7c1e12f41b7c697ae1ac",
+    "hashMethod": "canonical-json-sha256"
+  }
+}

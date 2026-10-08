@@ -5,7 +5,7 @@
   "steps": [
     {
       "file": "src/cli.ts",
-      "line": 505,
+      "line": 519,
       "title": "Entry: proofloop codex-loop",
       "description": "Parses `--agent`, `--dry-run`, `--max-attempts`, `--run-id` and hands off. Errors here return exit 2 rather than throwing — a supervisor that crashes is worse than one that reports.",
       "pattern": "^\\s*async function runCodexLoopCommand\\(options: Record<string, string \\| boolean>, root: string\\): Promise<number> \\{\\s*$"

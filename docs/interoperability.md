@@ -2,6 +2,15 @@
 
 Proof Loop stays the certification source of truth: deterministic gate receipts, tool-use logs, and runner receipts decide pass/fail. External orchestration and observability systems can mirror or launch work, but they do not replace Proof Loop receipts.
 
+## Canonical Receipt Envelope
+
+Use `proofloop.receipt/v1` to transport existing payloads with content hashes, explicit
+verdict authority, and separately identified decisive/advisory checks. Valid envelope
+integrity does not promote an upstream failure or advisory claim into a passing program arc.
+The schema, migration mapping, and local 10MiB input boundary are in
+[receipt-envelope-v1.md](receipt-envelope-v1.md). Current canonical NodeKit browser-contract
+outputs remain unsupported by the legacy config-bound NodeKit verifier.
+
 ## Solo Founder Agent Builder
 
 Solo Founder supplies the RALPH methodology and durable .solo/ work journal. NodeProof imports its evidence through the versioned proofloop-solo-interop-v1 envelope and derives the authoritative gate without accepting Solo's pass claim.

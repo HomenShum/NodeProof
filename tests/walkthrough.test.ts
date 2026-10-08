@@ -35,13 +35,13 @@ function lines(relPath: string): string[] {
 
 /** [file, 1-indexed line, text that line must contain] */
 const ANCHORS: Array<[string, number, string]> = [
-  ["src/cli.ts", 101, "MCP_SERVER_RUNNING"],
-  ["src/cli.ts", 188, "export function runCli"],
-  ["src/cli.ts", 213, 'case "gate":'],
-  ["src/cli.ts", 505, "runCodexLoopCommand"],
-  ["src/cli.ts", 964, "runHooksCommand"],
-  ["src/cli.ts", 1052, "require.main === module"],
-  ["src/cli.ts", 1055, "catch((error"],
+  ["src/cli.ts", 105, "MCP_SERVER_RUNNING"],
+  ["src/cli.ts", 196, "export function runCli"],
+  ["src/cli.ts", 221, 'case "gate":'],
+  ["src/cli.ts", 519, "runCodexLoopCommand"],
+  ["src/cli.ts", 1070, "runHooksCommand"],
+  ["src/cli.ts", 1158, "require.main === module"],
+  ["src/cli.ts", 1161, "catch((error"],
   ["src/gate.ts", 21, "GATE_STATE_RELATIVE_PATH"],
   ["src/gate.ts", 53, "export function statusToExit"],
   ["src/gate.ts", 73, "function writeGateState"],

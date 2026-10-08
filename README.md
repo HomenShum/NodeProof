@@ -27,7 +27,7 @@ node dist/cli.js gate   # runs this repo's own gate against itself
 node dist/cli.js help   # every command, one line each
 ```
 
-`npm test` should print `Test Files 28 passed (28)` / `Tests 260 passed (260)`.
+`npm test` builds the CLI and runs the full native suite. Require a zero exit code; see the recorded counts and remaining failures in `CHANGELOG/cli/receipt-boundaries.md`.
 
 **Inside this clone the command is `node dist/cli.js`, never `npx proofloop`.**
 `npx proofloop` resolves the *published* package — or whatever `proofloop`
@@ -368,6 +368,85 @@ you want the CLI to execute the plan with append-only state, budget control, and
 node dist/cli.js this-repo --goal "proofloop my latest updates" --write-runner-plan --run --budget-usd 100
 ```
 
+## Durable Program Supervisor
+
+A developer can make several local proof tasks depend on one another without rerunning
+completed work after an interruption. Each program arc points at an existing runner plan,
+uses a supplied local authority file, and can require a receipt before dependent work starts.
+An intact receipt describing a failed or advisory check must not unlock the next task.
+
+For a local read/proposal program, supply an authority file such as `authority.json`:
+
+```json
+{
+  "schema": "proofloop-program-authority-v1",
+  "authorityId": "local-read-proposal",
+  "allowedArcModes": ["read_only", "proposal_only"],
+  "allowExternalEgress": false,
+  "maxBudgetUsd": 10,
+  "maxAttemptsPerArc": 1
+}
+```
+
+Then supply a dependency-ordered program such as `proofloop.program.json`:
+
+```json
+{
+  "schema": "proofloop-program-plan-v1",
+  "programId": "local-proof-program",
+  "authorityPath": "authority.json",
+  "arcs": [
+    {
+      "id": "baseline",
+      "mode": "read_only",
+      "runnerPlan": "plans/baseline.runner.json"
+    },
+    {
+      "id": "proposal",
+      "mode": "proposal_only",
+      "runnerPlan": "plans/proposal.runner.json",
+      "dependsOn": ["baseline"],
+      "receipt": {
+        "kind": "proofloop-envelope",
+        "file": "proof/proposal-receipt.json"
+      }
+    }
+  ]
+}
+```
+
+The two `runnerPlan` paths must name existing `proofloop-runner-plan-v1` files with
+commands you have authorized. The proposal runner must produce the actual receipt
+before its arc completes; the supervisor verifies it and does not create evidence.
+See the [receipt envelope guide](docs/receipt-envelope-v1.md) for its verdict and
+integrity contract.
+
+```bash
+node dist/cli.js program run --plan proofloop.program.json --budget-usd 10
+node dist/cli.js program resume --run-id latest
+node dist/cli.js program status --run-id latest --json
+node dist/cli.js program report --run-id latest --json
+```
+
+Programs keep state and an append-only ledger under `.proofloop/programs/runs/<runId>/`.
+The P0 plan and authority contract accepts only `read_only` and `proposal_only` arc modes
+and rejects explicit external egress. It checks the approved budget before each new arc
+and blocks an existing run when the canonical plan, referenced runner-plan, or authority
+digest changes. Failed arcs are terminal and are not automatically requeued. Resume may
+recover an interrupted `running` arc; a stale lock requires explicit `--clear-stale-lock`
+recovery and does not make a failed arc eligible again.
+
+Envelope receipt hooks require both valid local integrity and an `authoritative` `passed`
+verdict. This local supervisor is **not an OS sandbox**: the execution environment must
+independently enforce network, credential, browser, deployment, and publication authority.
+The mode labels and supplied authority file do not grant permission to deploy, publish,
+or call providers.
+
+`program verify-nodekit` supports only the legacy config-bound NodeKit receipt layout.
+The current canonical NodeKit browser-contract/browser-certification layout and unstamped
+demo/evaluation receipts are **NOT_SUPPORTED**. The verifier preserves candidate, source,
+config, and receipt digests rather than inventing compatibility.
+
 ## How The Stop Gate Decides
 
 - Default check-only mode reads `.proofloop/gate-state.json` with no subprocess or network call.
@@ -432,6 +511,11 @@ script. With neither, it reports `no_gate` with exit code 2. An unconfigured gat
 | `proofloop report latest [--json]` | Summarize the latest gate receipt. |
 | `proofloop charts latest` | Write local JSON/SVG proof charts under `.proofloop/charts/`. |
 | `proofloop receipt verify --file <path>` | Verify app-produced proof receipts such as NodeAgent ingestion receipts. |
+| `proofloop receipt envelope verify --file <path> [--json]` | Inspect envelope structure, authority rules, and local byte hashes; a valid failed/advisory receipt remains valid evidence. |
+| `proofloop receipt schema [--json]` | Locate or print the versioned envelope schema. |
+| `proofloop program run\|resume\|status\|report` | Supervise supplied local runner arcs; only an authoritative passing envelope unlocks dependent work. |
+| `proofloop program verify-nodekit --file <path> --candidate-commit <sha>` | Verify the legacy config-bound NodeKit layout; current canonical NodeKit outputs are unsupported. |
+| `proofloop ease verify --manifest <path> [--out <receipt>]` | Check supplied EaseProof bytes and identities; integrity errors prevent Ease certification. |
 | `proofloop solo setup --source <repo> --agent both` | Install one canonical Solo skill for Codex and Claude Code and compose one Stop gate. |
 | `proofloop solo ingest --file <envelope> --write-runner-plan` | Validate Solo evidence and optionally compile advisory tasks without executing them. |
 | `proofloop solo status\|resume\|gate` | Inspect or enforce the NodeProof-derived Solo interop state. |
@@ -494,6 +578,27 @@ node dist/cli.js receipt verify \
 The verifier checks the receipt type/version, `ok: true`, document-pool to memory-pool stage order,
 created document and memory-object counts, proof hashes/keys, zero source/chunk failures, and positive
 batch/concurrency config. Failed receipts exit 1, while malformed CLI usage exits 2.
+
+## Canonical Receipt Envelopes
+
+A developer inspecting supplied evidence can use the `proofloop.receipt/v1` envelope to
+keep payload bytes, checks, and verdict authority separate:
+
+```bash
+node dist/cli.js receipt envelope verify --file proof/receipt.json --json
+node dist/cli.js receipt schema --json
+```
+
+Inspection exit 0 means the envelope and supplied local hashes are valid. It does not
+change a `failed`, `blocked`, `error`, advisory, or informational verdict into a passing gate.
+Program envelope hooks require an authoritative passing verdict separately. See the
+[envelope contract](docs/receipt-envelope-v1.md) for the schema and authority rules.
+
+These local readers admit only regular files of at most **10MiB per input**. Referenced
+evidence must stay below its declared root without traversing a symbolic link or junction.
+Larger screenshots, media, replay files, or candidate archives are unsupported and rejected;
+there is no silent certification of evidence that was not read. Supplied Ease flags do not
+establish fresh human usability, deployment, or independent live-browser proof.
 
 ## Scope
 

@@ -32,4 +32,8 @@ export * from "./providerSetup";
 export * from "./soloInterop";
 export * from "./soloSetup";
 export * from "./soloTrust";
+export * from "./program";
+export * from "./proofReceipt";
+export * from "./nodekitProof";
+export * from "./easeProof";
 export { runCli } from "./cli";
