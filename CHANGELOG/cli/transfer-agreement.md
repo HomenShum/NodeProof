@@ -1,5 +1,18 @@
 # Transfer agreement
 
+## 2026-10-07 — canonical adoption verified
+
+[PR #27](https://github.com/HomenShum/NodeProof/pull/27) is adopted at main
+`75325e5273e5f90f612a9f59c3019d8f49671df1`; PR #9 is closed unmerged with its
+original head and branch preserved. All 250 canonical leaves match the reviewed
+tree: 22 adopted paths and 228 unchanged original leaves. Configured Node 20.20.2
+[main CI](https://github.com/HomenShum/NodeProof/actions/runs/37731756102),
+platform conformance and production identity verification passed. A separate
+bounded raw-HTML read of `https://proofloop.live/` returned 200 with exactly one
+`proofloop-build-sha` equal to that main commit. This verifies the static build's
+identity; CLI behavior is covered by the build, 291-test runs and package checks
+below. npm registry publication and live-agent/browser provenance are unverified.
+
 ## 2026-10-07 — current-source port, publication pending
 
 A developer or coding agent comparing two supplied verdict files can now use
