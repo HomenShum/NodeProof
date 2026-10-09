@@ -11,6 +11,8 @@
 <p align="center"><a href="#quickstart">Quickstart</a> · <a href="docs/START_HERE.md">Code&nbsp;walkthrough</a> · <a href="https://homenshum.github.io/">All&nbsp;projects</a></p>
 <!-- brand:end -->
 
+# NodeProof
+
 **Bring any coding agent. NodeProof makes it prove the app works.**
 
 Coding agents write code and say "done." NodeProof is the supervisor that decides whether done is
