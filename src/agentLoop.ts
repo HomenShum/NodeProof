@@ -31,25 +31,32 @@ export async function runProofloopAgentLoop(options: {
 }): Promise<ProofloopAgentLoopResult> {
   const root = resolve(options.root ?? process.cwd());
   const agentId = options.agentId ?? "codex";
-  const maxAttempts = Math.max(1, options.maxAttempts ?? 1);
+  const maxAttempts = options.maxAttempts === undefined ? 1 : options.maxAttempts;
+  if (!Number.isSafeInteger(maxAttempts) || maxAttempts <= 0) {
+    throw new Error("maxAttempts must be a positive safe integer");
+  }
   const runId = options.runId ?? `gate-${compactTimestamp(new Date())}`;
   const runDir = join(root, ".proofloop", "runs", runId);
   mkdirSync(runDir, { recursive: true });
 
-  let lastExit = 2;
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    lastExit = runGateCli({
+  let attempts = 0;
+  while (true) {
+    const lastExit = runGateCli({
       root,
       log: options.log ?? console.log,
       logError: options.logError ?? console.error,
     });
     const state = readGateState(root);
     const verdict = verdictFromGate(runId, state, lastExit);
-    writeJson(join(runDir, `gate-attempt-${attempt}.json`), state ?? { missing: gateStatePath(root), exitCode: lastExit });
+    writeJson(join(runDir, `gate-attempt-${attempts + 1}.json`), state ?? { missing: gateStatePath(root), exitCode: lastExit });
     if (verdict.passed) {
-      return { runId, exitCode: 0, attempts: attempt, passed: true, runDir };
+      return { runId, exitCode: 0, attempts, passed: true, runDir };
+    }
+    if (attempts === maxAttempts) {
+      return { runId, exitCode: lastExit || 1, attempts, passed: false, runDir };
     }
 
+    const attempt = attempts + 1;
     const repairPromptPath = join(runDir, `${safeAgentId(agentId)}-repair-prompt-${attempt}.md`);
     const prompt = buildAgentRepairPrompt({
       adapterId: agentId,
@@ -86,11 +93,11 @@ export async function runProofloopAgentLoop(options: {
       runResult,
     });
 
+    if (runResult.launched) attempts++;
     if (options.dryRun || !runResult.launched || runResult.status === "failed") {
-      return { runId, exitCode: lastExit || 1, attempts: attempt, passed: false, runDir, repairPromptPath };
+      return { runId, exitCode: lastExit || 1, attempts, passed: false, runDir, repairPromptPath };
     }
   }
-  return { runId, exitCode: lastExit || 1, attempts: maxAttempts, passed: false, runDir };
 }
 
 function readGateState(root: string): GateState | undefined {

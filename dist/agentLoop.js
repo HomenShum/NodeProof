@@ -9,23 +9,30 @@ const gate_1 = require("./gate");
 async function runProofloopAgentLoop(options) {
     const root = (0, node_path_1.resolve)(options.root ?? process.cwd());
     const agentId = options.agentId ?? "codex";
-    const maxAttempts = Math.max(1, options.maxAttempts ?? 1);
+    const maxAttempts = options.maxAttempts === undefined ? 1 : options.maxAttempts;
+    if (!Number.isSafeInteger(maxAttempts) || maxAttempts <= 0) {
+        throw new Error("maxAttempts must be a positive safe integer");
+    }
     const runId = options.runId ?? `gate-${compactTimestamp(new Date())}`;
     const runDir = (0, node_path_1.join)(root, ".proofloop", "runs", runId);
     (0, node_fs_1.mkdirSync)(runDir, { recursive: true });
-    let lastExit = 2;
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        lastExit = (0, gate_1.runGateCli)({
+    let attempts = 0;
+    while (true) {
+        const lastExit = (0, gate_1.runGateCli)({
             root,
             log: options.log ?? console.log,
             logError: options.logError ?? console.error,
         });
         const state = readGateState(root);
         const verdict = verdictFromGate(runId, state, lastExit);
-        writeJson((0, node_path_1.join)(runDir, `gate-attempt-${attempt}.json`), state ?? { missing: (0, gate_1.gateStatePath)(root), exitCode: lastExit });
+        writeJson((0, node_path_1.join)(runDir, `gate-attempt-${attempts + 1}.json`), state ?? { missing: (0, gate_1.gateStatePath)(root), exitCode: lastExit });
         if (verdict.passed) {
-            return { runId, exitCode: 0, attempts: attempt, passed: true, runDir };
+            return { runId, exitCode: 0, attempts, passed: true, runDir };
         }
+        if (attempts === maxAttempts) {
+            return { runId, exitCode: lastExit || 1, attempts, passed: false, runDir };
+        }
+        const attempt = attempts + 1;
         const repairPromptPath = (0, node_path_1.join)(runDir, `${safeAgentId(agentId)}-repair-prompt-${attempt}.md`);
         const prompt = (0, agentAdapters_1.buildAgentRepairPrompt)({
             adapterId: agentId,
@@ -61,11 +68,12 @@ async function runProofloopAgentLoop(options) {
             maxAttempts,
             runResult,
         });
+        if (runResult.launched)
+            attempts++;
         if (options.dryRun || !runResult.launched || runResult.status === "failed") {
-            return { runId, exitCode: lastExit || 1, attempts: attempt, passed: false, runDir, repairPromptPath };
+            return { runId, exitCode: lastExit || 1, attempts, passed: false, runDir, repairPromptPath };
         }
     }
-    return { runId, exitCode: lastExit || 1, attempts: maxAttempts, passed: false, runDir };
 }
 function readGateState(root) {
     const path = (0, gate_1.gateStatePath)(root);
