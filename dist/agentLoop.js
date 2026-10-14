@@ -6,8 +6,10 @@ const node_path_1 = require("node:path");
 const agentAdapters_1 = require("./agentAdapters");
 const codexRelaunch_1 = require("./codexRelaunch");
 const gate_1 = require("./gate");
+const repairDeadline_1 = require("./repairDeadline");
 async function runProofloopAgentLoop(options) {
     const root = (0, node_path_1.resolve)(options.root ?? process.cwd());
+    const timeoutMs = (0, repairDeadline_1.repairTimeoutMs)(options.timeoutMs);
     const agentId = options.agentId ?? "codex";
     const maxAttempts = options.maxAttempts === undefined ? 1 : options.maxAttempts;
     if (!Number.isSafeInteger(maxAttempts) || maxAttempts <= 0) {
@@ -15,6 +17,8 @@ async function runProofloopAgentLoop(options) {
     }
     const runId = options.runId ?? `gate-${compactTimestamp(new Date())}`;
     const runDir = (0, node_path_1.join)(root, ".proofloop", "runs", runId);
+    if (options.signal?.aborted)
+        return { runId, runDir, exitCode: 1, attempts: 0, passed: false };
     (0, node_fs_1.mkdirSync)(runDir, { recursive: true });
     let attempts = 0;
     while (true) {
@@ -52,10 +56,12 @@ async function runProofloopAgentLoop(options) {
                 promptPath: repairPromptPath,
                 message: "dry run; agent was not launched",
             }
-            : (0, agentAdapters_1.launchProofloopAgentAdapter)({
+            : await (0, agentAdapters_1.launchProofloopAgentAdapter)({
                 adapterId: agentId,
                 promptPath: repairPromptPath,
                 targetDir: root,
+                timeoutMs,
+                signal: options.signal,
                 ...(options.command ? { command: options.command } : {}),
             });
         (0, agentAdapters_1.writeAgentRepairAttemptReceipt)({
@@ -70,7 +76,7 @@ async function runProofloopAgentLoop(options) {
         });
         if (runResult.launched)
             attempts++;
-        if (options.dryRun || !runResult.launched || runResult.status === "failed") {
+        if (options.dryRun || !runResult.launched || runResult.status === "failed" || options.signal?.aborted) {
             return { runId, exitCode: lastExit || 1, attempts, passed: false, runDir, repairPromptPath };
         }
     }

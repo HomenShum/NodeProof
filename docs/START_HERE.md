@@ -58,7 +58,7 @@ next, so you can put this page down at any point and keep going in the editor.
 
 **File:** `src/cli.ts`
 **Symbol:** `runCli`
-**Called by:** `dist/cli.js` when run as a program (`package.json` → `bin.proofloop`), guarded by `require.main === module` at `src/cli.ts:1158` so importing the module never runs it
+**Called by:** `dist/cli.js` when run as a program (`package.json` → `bin.proofloop`), guarded by `require.main === module` at `src/cli.ts:1180` so importing the module never runs it
 **Calls next:** one of ~28 command handlers; for this walkthrough, `runGateCli`
 
 **Why this exists**
@@ -83,7 +83,7 @@ export function runCli(argv: string[]): number | Promise<number> {
 **Output** — a process exit code (`number`), or a `Promise<number>` for the
 async commands.
 **Failure behavior** — an unknown command prints usage to stderr and returns 2.
-An exception anywhere below is caught at `src/cli.ts:1161` and also becomes
+An exception anywhere below is caught at `src/cli.ts:1183` and also becomes
 exit 2.
 **Next** — Step 2, `runGateCli`.
 
@@ -165,7 +165,7 @@ gate against a broken config would quietly prove nothing.
 
 **File:** `src/agentLoop.ts`
 **Symbol:** `runProofloopAgentLoop`
-**Called by:** `runCli` case `"codex-loop"` → `runCodexLoopCommand` (`src/cli.ts:519`)
+**Called by:** `runCli` case `"codex-loop"` → `runCodexLoopCommand` (`src/cli.ts:520`)
 **Calls next:** `runGateCli` (Step 2), `buildAgentRepairPrompt`, `launchProofloopAgentAdapter` (`src/agentAdapters.ts`)
 
 **Why this exists**
@@ -187,14 +187,14 @@ while (true) {
 
   const prompt = buildAgentRepairPrompt({ adapterId: agentId, verdict, ... });
   writeFileSync(repairPromptPath, prompt, "utf8");
-  const runResult = options.dryRun ? { ...notLaunched } : launchProofloopAgentAdapter({ ... });
+  const runResult = options.dryRun ? { ...notLaunched } : await launchProofloopAgentAdapter({ ... });
   if (runResult.launched) attempts++;
   if (!runResult.launched || runResult.status === "failed") return { ...failedResult };
 }
 ```
 
 **Input** — repo root, an agent id (`codex`, `claude-code`, …), `maxAttempts`
-(a positive safe integer, default 1), and `dryRun`. Invalid supplied budgets
+(a positive safe integer, default 1), `timeoutMs`, an optional `AbortSignal`, and `dryRun`. Invalid supplied budgets
 are rejected before any gate, agent launch or run artifact is created.
 **Output** — `{ runId, exitCode, attempts, passed, runDir }`, plus files under
 `.proofloop/runs/<run-id>/`. `attempts` counts launched repair processes, not
@@ -206,9 +206,54 @@ prompt or launch follows budget exhaustion.
 the adapter has no command, the count stays zero. A launched process that exits
 nonzero counts once and stops the loop with the gate's failure code. The loop
 does not certify changes from that failed process. Repair launch count is
-bounded; the existing launcher has no wall-clock timeout. Use distinct run IDs
+bounded; each repair also has a deadline, default 30 minutes. `--timeout-ms`
+on `codex-loop` and `codex relaunch` accepts an integer from 1 to 2147483647.
+The deadline starts when that repair launches, not when the gate or whole loop
+starts. Timeout, cancellation, output overflow or persistence failure stops
+automation with a failed result; no later zero exit can turn it into a pass.
+Captured stdout and stderr are each capped at 1 MiB.
+
+Cleanup has a fixed additional allowance: up to 4 seconds on Windows (a bounded
+3-second PID-scoped `taskkill /T /F` helper plus output closure) and 2 seconds
+on POSIX (TERM, then KILL after 250 ms, then group/output checks). A helper exit
+or a missing root alone is not proof of cleanup. An unconfirmed outcome says
+`cleanup-unverified` and stops. The supported boundary is the owned foreground
+shell and ordinary descendants while that ownership remains observable.
+Deliberate background/daemon jobs, exited/reparented Windows descendants,
+remote jobs and OS permission failures are not guaranteed contained. Normal
+foreground exit/output closure does not certify that arbitrary background
+processes stopped. The Windows inherited-pipe fixture did not establish pipe
+retention or descendant survival; that case requires separate platform proof.
+
+The CLI forwards interruption while awaiting a repair and removes its handlers
+afterward. Library users pass `AbortSignal`; the library installs no global
+signal handlers. Synchronous gates remain outside the repair deadline and can
+delay cancellation delivery. This is not a hard total-loop deadline. Use distinct run IDs
 and isolated project roots for concurrent jobs. Adapter logs and the latest
 repair receipt still overwrite between attempts; gate snapshots are separate.
+
+**0.4.0 API migration** — `launchProofloopAgentAdapter` now returns
+`Promise<AgentRunResult>`; the settled result shape is unchanged. Replace
+`const result = launchProofloopAgentAdapter(args)` with an awaited call:
+
+```ts
+const cancellation = new AbortController();
+try {
+  const result = await launchProofloopAgentAdapter({
+    ...args, timeoutMs: 60_000, signal: cancellation.signal,
+  });
+  if (result.status === "failed") console.error(result.message);
+} catch (error) {
+  // Invalid timeout values reject before launching or writing artifacts.
+  console.error(error);
+}
+```
+
+The Promise adapter facade and `runProofloopAgentLoop` accept the same timeout
+and signal. Pre-aborted work and unavailable commands count zero launches;
+an actually launched timed-out repair counts once. No synchronous compatibility
+launcher is retained. This is an intentional public API break, not an npm
+publication or proof about unknown external consumers.
 **Next** — Step 5, the tools an agent is offered.
 
 ## Step 5 — Tools are registered for the agent to call
@@ -241,7 +286,7 @@ them writes to the repository. That is the security boundary — an agent cannot
 use this server to change files.
 **Failure behavior** — an unknown method or malformed frame produces a JSON-RPC
 error object; the server keeps reading. `runCli` returns the sentinel
-`MCP_SERVER_RUNNING` (`src/cli.ts:105`) so the process is *not* exited while the
+`MCP_SERVER_RUNNING` (`src/cli.ts:106`) so the process is *not* exited while the
 server is serving.
 **Next** — Step 6, how tool calls are proven after the fact.
 
@@ -355,7 +400,7 @@ recorded as a failure with `exitCode: null`.
 
 **File:** `src/proofloopHooks.ts`
 **Symbol:** `stopGateScript` (line 504) — a generator that writes the standalone hook `.proofloop/hooks/stop-gate.mjs`; installed by `installProofloopHooks` (line 172)
-**Called by:** `runCli` case `"hooks"` → `runHooksCommand` (`src/cli.ts:1070`)
+**Called by:** `runCli` case `"hooks"` → `runHooksCommand` (`src/cli.ts:1092`)
 **Calls next:** at runtime the generated script calls `proofloop gate --check` (Step 2, check mode) or reads the receipt directly
 
 **Why this exists**

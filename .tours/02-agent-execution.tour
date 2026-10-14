@@ -5,31 +5,31 @@
   "steps": [
     {
       "file": "src/cli.ts",
-      "line": 519,
+      "line": 520,
       "title": "Entry: proofloop codex-loop",
-      "description": "Parses `--agent`, `--dry-run`, `--max-attempts`, `--run-id` and hands off. Errors here return exit 2 rather than throwing — a supervisor that crashes is worse than one that reports.",
+      "description": "Parses --agent, --dry-run, --max-attempts, --timeout-ms and --run-id. Each repair has a validated deadline, default 30 minutes, followed by a fixed cleanup allowance. The CLI awaits the launcher and forwards interruptions during repair; library callers use AbortSignal. Synchronous gates remain outside this deadline. Invalid input returns exit 2.",
       "pattern": "^\\s*async function runCodexLoopCommand\\(options: Record<string, string \\| boolean>, root: string\\): Promise<number> \\{\\s*$"
     },
     {
       "file": "src/agentLoop.ts",
-      "line": 43,
+      "line": 48,
       "title": "The loop",
       "description": "Run the gate initially and after every successfully completed repair, including the final allowed repair. Only launch another agent when the gate still fails and the positive-integer launch budget has room. `attempts` counts launched processes, so an initially passing project reports zero.\n\nEach observation leaves `gate-attempt-N.json` in `.proofloop/runs/<run-id>/`, up to budget + 1 snapshots. A zero-exit repair is not itself a passing gate.",
       "pattern": "^\\s*while \\(true\\) \\{\\s*$"
     },
     {
       "file": "src/agentLoop.ts",
-      "line": 113,
+      "line": 120,
       "title": "Gate result → agent verdict",
       "description": "The translation layer. Failed check names become `failedGates`; if the gate produced no state at all, the verdict still carries a reason (`gate_unavailable`) rather than an empty list. The agent is never told 'something failed' with nothing to act on.",
       "pattern": "^\\s*function verdictFromGate\\(runId: string, state: GateState \\| undefined, exitCode: number\\): ProofloopVerdict \\{\\s*$"
     },
     {
       "file": "src/agentLoop.ts",
-      "line": 97,
+      "line": 104,
       "title": "When the agent cannot be launched",
-      "description": "Dry run or no configured command: stop with zero launches. A launched process that exits nonzero counts once and also stops. Return the gate's failure code, with the prompt available for a human to act on. The launch budget does not add a wall-clock timeout to the existing adapter.",
-      "pattern": "^\\s*if \\(options\\.dryRun \\|\\| !runResult\\.launched \\|\\| runResult\\.status === \"failed\"\\) \\{\\s*$"
+      "description": "Dry run, missing command or pre-launch cancellation counts zero launches. A launched failure, timeout, cancellation, output/persistence failure or unverified cleanup counts once and stops: no subsequent repair or verifier. Arbitrary detached/reparented jobs are outside verified containment. Existing log/receipt history naming is unchanged.",
+      "pattern": "^\\s*if \\(options\\.dryRun \\|\\| !runResult\\.launched \\|\\| runResult\\.status === \"failed\" \\|\\| options\\.signal\\?\\.aborted\\) \\{\\s*$"
     },
     {
       "file": "src/mcp.ts",

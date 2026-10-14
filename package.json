@@ -1,6 +1,6 @@
 {
   "name": "proofloop",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "NodeProof makes coding agents prove the app works. Portable proof-supervisor CLI: gate + hooks + tool-use contracts + kickoff prompt. Zero runtime dependencies.",
   "keywords": [
     "proof-loop",

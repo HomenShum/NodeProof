@@ -53,6 +53,8 @@ export type ProofloopAgentAdapter = {
     launch(promptPath: string, targetDir: string, options?: {
         command?: string;
         env?: NodeJS.ProcessEnv;
+        timeoutMs?: number;
+        signal?: AbortSignal;
     }): Promise<AgentRunResult>;
     collectTrace(runDir: string): Promise<AgentTrace>;
     buildRepairPrompt(verdict: ProofloopVerdict, options?: {
@@ -76,7 +78,9 @@ export declare function launchProofloopAgentAdapter(args: {
     targetDir?: string;
     command?: string;
     env?: NodeJS.ProcessEnv;
-}): AgentRunResult;
+    timeoutMs?: number;
+    signal?: AbortSignal;
+}): Promise<AgentRunResult>;
 export declare function collectProofloopAgentTrace(args: {
     adapterId: ProofloopAgentAdapterId;
     runDir: string;
