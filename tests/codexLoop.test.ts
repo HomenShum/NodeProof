@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -244,4 +244,133 @@ function tempRoot(): string {
 
 function nodeCommand(source: string): string {
   return `${JSON.stringify(process.execPath)} -e ${JSON.stringify(source)}`;
+}
+
+describe("a developer's elapsed-time repair budget", () => {
+  it("writes a timeout receipt and stops before another repair or verification", async () => {
+    const root = deadlineProject();
+    const result = await repair(root, { maxAttempts: 3, timeoutMs: 350 });
+    expect(result).toMatchObject({ passed: false, exitCode: 1, attempts: 1 });
+    expectGateHistory(result.runDir, ["failed"]);
+    const receipt = readJson(join(result.runDir, "generic-cli-repair-attempt.json"));
+    expect(receipt.runResult).toMatchObject({ status: "failed", launched: true });
+    expect(receipt.runResult.message).toContain("timed out");
+    expect(existsSync(join(root, "expired"))).toBe(false);
+    expect(projectState(root).repairs).toBe(1);
+    expect(existsSync(join(result.runDir, "generic-cli-repair-prompt-2.md"))).toBe(false);
+  });
+
+  it("rejects invalid API and CLI deadlines before gates or receipts", async () => {
+    const root = repairProject();
+    for (const timeoutMs of [0, -1, 1.1, NaN, Infinity, 2147483648]) {
+      await expect(repair(root, { timeoutMs })).rejects.toThrow("timeoutMs must be an integer");
+    }
+    for (const value of ["", "wat", "0", "-1", "1.1", "Infinity", "2147483648"]) {
+      expect(await runCli(["--dir", root, "codex-loop", `--timeout-ms=${value}`])).toBe(2);
+      expect(await runCli(["--dir", root, "codex", "relaunch", "not-created", `--timeout-ms=${value}`])).toBe(2);
+    }
+    expect(await runCli(["--dir", root, "codex-loop", "--timeout-ms"])).toBe(2);
+    expect(existsSync(join(root, "events.jsonl"))).toBe(false);
+    expect(existsSync(join(root, ".proofloop"))).toBe(false);
+  });
+
+  it("does no work for a pre-aborted project and stops after a cancelled active repair", async () => {
+    const root = deadlineProject();
+    const pre = new AbortController(); pre.abort();
+    expect(await repair(root, { signal: pre.signal })).toMatchObject({ attempts: 0, passed: false });
+    expect(existsSync(join(root, ".proofloop"))).toBe(false);
+    const controller = new AbortController();
+    const pending = repair(root, { signal: controller.signal, timeoutMs: 2000, maxAttempts: 3 });
+    await waitForFile(join(root, "ready"));
+    controller.abort();
+    const result = await pending;
+    expect(result).toMatchObject({ attempts: 1, passed: false });
+    expectGateHistory(result.runDir, ["failed"]);
+    expect(readJson(join(result.runDir, "generic-cli-repair-attempt.json")).runResult.message).toContain("cancelled");
+  });
+
+  it("awaits a bounded direct Codex relaunch supplied with an explicit local command", async () => {
+    const root = deadlineProject();
+    const runDir = join(root, ".proofloop", "runs", "direct");
+    mkdirSync(runDir, { recursive: true });
+    writeFileSync(join(runDir, "codex-reprompt.md"), "Repair the local project; do not weaken its checks.");
+    const signals = ["SIGINT", "SIGTERM", "SIGHUP"] as const;
+    const before = signals.map(s => process.listenerCount(s));
+    const started = Date.now();
+    try {
+      expect(await runCli(["--dir", root, "codex", "relaunch", "direct", "--command", `"${process.execPath}" repair.cjs`, "--timeout-ms", "350"])).toBe(1);
+      expect(existsSync(join(runDir, "codex-stdout.log"))).toBe(true);
+      const beats = readFileSync(join(root, "beats"), "utf8");
+      await new Promise(r => setTimeout(r, 300));
+      expect(readFileSync(join(root, "beats"), "utf8")).toBe(beats);
+      expect(existsSync(join(root, "expired"))).toBe(false);
+      expect(signals.map(s => process.listenerCount(s))).toEqual(before);
+    } finally {
+      // On a failed cleanup assertion the finite fixture must expire before the existing temp-root teardown.
+      await new Promise(r => setTimeout(r, Math.max(0, 6500 - (Date.now() - started))));
+    }
+  }, 10000);
+
+  it("keeps a three-job CLI burst isolated across success, timeout and partial repair", async () => {
+    const roots = [repairProject(), deadlineProject(), repairProject({ partial: true })];
+    const results = await Promise.all(roots.map((root, i) => runDeadlineCli(root, `deadline-burst-${i}`)));
+    expect(results.map(r => r.code)).toEqual([0, 1, 1]);
+    expect(results[0].output).toContain("attempts=1");
+    expect(results[1].output).toContain("attempts=1");
+    expect(results[2].output).toContain("attempts=2");
+    expectGateHistory(join(roots[1], ".proofloop/runs/deadline-burst-1"), ["failed"]);
+    const beats = readFileSync(join(roots[1], "beats"), "utf8");
+    await new Promise(r => setTimeout(r, 200));
+    expect(readFileSync(join(roots[1], "beats"), "utf8")).toBe(beats);
+  }, 15000);
+
+  it("finishes twelve successive CLI jobs with separate receipts and no continued timed-out heartbeat", async () => {
+    const snapshots: Array<{ file: string; text: string }> = [];
+    for (let i = 0; i < 12; i++) {
+      const slow = i % 2 === 1, root = slow ? deadlineProject() : repairProject(), id = `deadline-sustained-${i}`;
+      const result = await runDeadlineCli(root, id);
+      expect(result.code).toBe(slow ? 1 : 0);
+      expect(result.output).toContain("attempts=1");
+      const dir = join(root, ".proofloop/runs", id);
+      expectGateHistory(dir, slow ? ["failed"] : ["failed", "passed"]);
+      const file = join(dir, "generic-cli-repair-attempt.json");
+      snapshots.push({ file, text: readFileSync(file, "utf8") });
+      if (slow) {
+        const beats = readFileSync(join(root, "beats"), "utf8");
+        await new Promise(r => setTimeout(r, 150));
+        expect(readFileSync(join(root, "beats"), "utf8")).toBe(beats);
+        expect(existsSync(join(root, "expired"))).toBe(false);
+      }
+    }
+    for (const s of snapshots) expect(readFileSync(s.file, "utf8")).toBe(s.text);
+  }, 45000);
+
+  it.skipIf(process.platform === "win32")("forwards a real CLI interrupt to its active POSIX repair and writes the failure receipt", async () => {
+    const root = deadlineProject(), id = "interrupt";
+    const child = spawn(process.execPath, [join(process.cwd(), "dist/cli.js"), "--dir", root, "codex-loop", "--agent", "generic-cli", "--command", `"${process.execPath}" repair.cjs`, "--run-id", id, "--timeout-ms", "3000"], { stdio: "ignore", timeout: 10000 });
+    const closed = new Promise(resolve => child.once("close", code => resolve(code)));
+    await waitForFile(join(root, "ready")); child.kill("SIGINT");
+    expect(await closed).toBe(1);
+    expect(readJson(join(root, ".proofloop/runs", id, "generic-cli-repair-attempt.json")).runResult.message).toContain("cancelled");
+    expectGateHistory(join(root, ".proofloop/runs", id), ["failed"]);
+  }, 15000);
+});
+
+function deadlineProject(): string {
+  const root = repairProject();
+  writeFileSync(join(root, "repair.cjs"), `const fs=require('node:fs');const prompt=fs.readFileSync(0,'utf8');if(prompt!==fs.readFileSync(process.env.PROOFLOOP_REPAIR_PROMPT,'utf8'))throw Error('prompt mismatch');const state=JSON.parse(fs.readFileSync('project.json'));state.repairs++;fs.writeFileSync('project.json',JSON.stringify(state));fs.writeFileSync('ready','yes');const t=setInterval(()=>fs.appendFileSync('beats','.'),50);setTimeout(()=>{clearInterval(t);fs.writeFileSync('expired','yes');process.exitCode=7;},6000);`);
+  return root;
+}
+async function waitForFile(file: string): Promise<void> {
+  const end = Date.now() + 2500;
+  while (!existsSync(file) && Date.now() < end) await new Promise(r => setTimeout(r, 20));
+  expect(existsSync(file)).toBe(true);
+}
+function runDeadlineCli(root: string, id: string): Promise<{ code: number | null; output: string }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [join(process.cwd(), "dist/cli.js"), "--dir", root, "codex-loop", "--agent", "generic-cli", "--command", `"${process.execPath}" repair.cjs`, "--run-id", id, "--max-attempts", "2", "--timeout-ms", "500"], { timeout: 12000, windowsHide: true });
+    let output = "";
+    child.stdout.on("data", b => { output += b; }); child.stderr.on("data", b => { output += b; });
+    child.once("error", reject); child.once("close", code => resolve({ code, output }));
+  });
 }

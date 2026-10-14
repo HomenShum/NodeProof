@@ -11,6 +11,8 @@ export declare function runProofloopAgentLoop(options: {
     root?: string;
     agentId?: ProofloopAgentAdapterId;
     maxAttempts?: number;
+    timeoutMs?: number;
+    signal?: AbortSignal;
     dryRun?: boolean;
     command?: string;
     runId?: string;

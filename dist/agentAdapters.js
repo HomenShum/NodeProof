@@ -24,6 +24,7 @@ const node_child_process_1 = require("node:child_process");
 const node_fs_1 = require("node:fs");
 const node_path_1 = require("node:path");
 const proofloopHooks_1 = require("./proofloopHooks");
+const repairDeadline_1 = require("./repairDeadline");
 exports.PROOFLOOP_AGENT_ADAPTER_IDS = ["codex", "claude-code", "cursor", "windsurf", "devin", "generic-cli"];
 function parseProofloopAgentAdapterId(value) {
     if (exports.PROOFLOOP_AGENT_ADAPTER_IDS.includes(value))
@@ -34,7 +35,7 @@ function getProofloopAgentAdapter(id) {
     return {
         id,
         installHooks: (targetDir, options) => setupProofloopAgentAdapter({ adapterId: id, root: targetDir, ...options }),
-        launch: (promptPath, targetDir, options) => Promise.resolve(launchProofloopAgentAdapter({ adapterId: id, promptPath, targetDir, ...options })),
+        launch: (promptPath, targetDir, options) => launchProofloopAgentAdapter({ adapterId: id, promptPath, targetDir, ...options }),
         collectTrace: (runDir) => Promise.resolve(collectProofloopAgentTrace({ adapterId: id, runDir })),
         buildRepairPrompt: (verdict, options) => Promise.resolve(buildAgentRepairPrompt({ adapterId: id, verdict, ...options })),
     };
@@ -73,9 +74,16 @@ async function setupProofloopAgentAdapter(args) {
     writeJson(agentSetupReceiptPath(root, args.adapterId), receipt);
     return receipt;
 }
-function launchProofloopAgentAdapter(args) {
+async function launchProofloopAgentAdapter(args) {
+    const timeoutMs = (0, repairDeadline_1.repairTimeoutMs)(args.timeoutMs);
     const targetDir = (0, node_path_1.resolve)(args.targetDir ?? process.cwd());
     const env = args.env ?? process.env;
+    const failedBeforeLaunch = (message) => ({
+        adapterId: args.adapterId, status: "failed", launched: false,
+        promptPath: rel(targetDir, args.promptPath), message,
+    });
+    if (args.signal?.aborted)
+        return failedBeforeLaunch("Repair cancelled before launch.");
     const command = args.command ?? defaultLaunchCommand(args.adapterId, env);
     if (!command) {
         const status = args.adapterId === "generic-cli" ? "needs_command" : "needs_adapter";
@@ -87,36 +95,179 @@ function launchProofloopAgentAdapter(args) {
             message: `${args.adapterId} has no launch command configured.`,
         };
     }
-    const prompt = (0, node_fs_1.readFileSync)(args.promptPath, "utf8");
-    const result = (0, node_child_process_1.spawnSync)(command, {
-        cwd: targetDir,
-        shell: true,
-        input: prompt,
-        stdio: ["pipe", "pipe", "pipe"],
-        encoding: "utf8",
-        env: {
-            ...env,
-            PROOFLOOP_AGENT_ADAPTER: args.adapterId,
-            PROOFLOOP_REPAIR_PROMPT: args.promptPath,
-        },
-    });
+    let prompt;
+    try {
+        prompt = (0, node_fs_1.readFileSync)(args.promptPath, "utf8");
+    }
+    catch (error) {
+        return failedBeforeLaunch(`Cannot read repair prompt: ${errorMessage(error)}`);
+    }
+    const result = await runRepairProcess(command, targetDir, prompt, {
+        ...env, PROOFLOOP_AGENT_ADAPTER: args.adapterId, PROOFLOOP_REPAIR_PROMPT: args.promptPath,
+    }, timeoutMs, args.signal);
     const stdoutPath = (0, node_path_1.join)((0, node_path_1.dirname)(args.promptPath), `${safeAgentId(args.adapterId)}-stdout.log`);
     const stderrPath = (0, node_path_1.join)((0, node_path_1.dirname)(args.promptPath), `${safeAgentId(args.adapterId)}-stderr.log`);
-    (0, node_fs_1.writeFileSync)(stdoutPath, result.stdout ?? "", "utf8");
-    (0, node_fs_1.writeFileSync)(stderrPath, result.stderr ?? "", "utf8");
-    const exitCode = result.status ?? 1;
+    let failure = result.failure;
+    const persisted = {};
+    for (const [key, path, contents] of [["stdoutPath", stdoutPath, result.stdout], ["stderrPath", stderrPath, result.stderr]]) {
+        try {
+            (0, node_fs_1.writeFileSync)(path, contents);
+            persisted[key] = rel(targetDir, path);
+        }
+        catch (error) {
+            failure = `${failure ? `${failure}; ` : ""}Cannot persist ${key}: ${errorMessage(error)}`;
+        }
+    }
+    const exitCode = failure ? result.code || 1 : result.code ?? 1;
     return {
         adapterId: args.adapterId,
-        status: exitCode === 0 ? "launched" : "failed",
-        launched: true,
+        status: !failure && exitCode === 0 ? "launched" : "failed",
+        launched: result.launched,
         command,
         promptPath: rel(targetDir, args.promptPath),
         exitCode,
-        stdoutPath: rel(targetDir, stdoutPath),
-        stderrPath: rel(targetDir, stderrPath),
-        message: exitCode === 0 ? `${args.adapterId} completed; rerun the Proof Loop gate.` : `${args.adapterId} exited ${exitCode}.`,
+        ...persisted,
+        message: failure ?? (exitCode === 0 ? `${args.adapterId} completed; rerun the Proof Loop gate.` : `${args.adapterId} exited ${exitCode}.`),
     };
 }
+const REPAIR_OUTPUT_BYTES = 1024 * 1024;
+const CLEANUP_BUDGET_MS = process.platform === "win32" ? 4000 : 2000;
+function runRepairProcess(command, cwd, prompt, env, timeoutMs, signal) {
+    return new Promise((resolveResult) => {
+        let child;
+        try {
+            child = (0, node_child_process_1.spawn)(command, { cwd, env, shell: true, detached: process.platform !== "win32", windowsHide: true, stdio: ["pipe", "pipe", "pipe"] });
+        }
+        catch (error) {
+            resolveResult({ launched: false, code: null, stdout: Buffer.alloc(0), stderr: Buffer.alloc(0), failure: `Repair launch failed: ${errorMessage(error)}` });
+            return;
+        }
+        let launched = false, closed = false, exited = false, settled = false;
+        let code = null, failure;
+        const output = { stdout: [], stderr: [] };
+        const bytes = { stdout: 0, stderr: 0 };
+        const finish = () => {
+            if (settled)
+                return;
+            settled = true;
+            clearTimeout(deadline);
+            signal?.removeEventListener("abort", abort);
+            child.stdin.destroy();
+            child.stdout.destroy();
+            child.stderr.destroy();
+            child.unref();
+            resolveResult({ launched, code, stdout: Buffer.concat(output.stdout), stderr: Buffer.concat(output.stderr), ...(failure ? { failure } : {}) });
+        };
+        const fail = (reason) => {
+            if (settled || failure)
+                return;
+            failure = reason;
+            clearTimeout(deadline);
+            if (!child.pid) {
+                finish();
+                return;
+            }
+            // A root which already exited cannot identify a remaining Windows process tree safely.
+            void terminateOwnedRepair(child.pid, () => closed, exited).then(confirmed => {
+                if (!confirmed)
+                    failure += "; cleanup-unverified: owned process tree or output closure could not be confirmed; stop automation.";
+                finish();
+            }, error => {
+                failure += `; cleanup-unverified: ${errorMessage(error)}; stop automation.`;
+                finish();
+            });
+        };
+        const abort = () => fail("Repair cancelled by caller.");
+        const deadline = setTimeout(() => fail(`Repair timed out after ${timeoutMs}ms.`), timeoutMs);
+        child.once("spawn", () => { launched = true; });
+        child.once("error", error => fail(`Repair launch failed: ${errorMessage(error)}`));
+        child.once("exit", status => { exited = true; code = status; });
+        child.once("close", status => { closed = true; code = status; if (!failure)
+            finish(); });
+        for (const stream of ["stdout", "stderr"]) {
+            child[stream].on("data", (chunk) => {
+                if (settled)
+                    return;
+                const remaining = REPAIR_OUTPUT_BYTES - bytes[stream];
+                if (remaining > 0) {
+                    const captured = Buffer.from(chunk.subarray(0, remaining));
+                    output[stream].push(captured);
+                    bytes[stream] += captured.length;
+                }
+                if (chunk.length > remaining)
+                    fail(`Repair ${stream} exceeded ${REPAIR_OUTPUT_BYTES} bytes.`);
+            });
+            child[stream].on("error", error => fail(`Repair ${stream} failed: ${errorMessage(error)}`));
+        }
+        child.stdin.on("error", error => fail(`Repair stdin failed: ${errorMessage(error)}`));
+        signal?.addEventListener("abort", abort, { once: true });
+        if (signal?.aborted)
+            abort();
+        else
+            child.stdin.end(prompt);
+    });
+}
+async function terminateOwnedRepair(pid, closed, rootAlreadyExited) {
+    const until = Date.now() + CLEANUP_BUDGET_MS;
+    if (process.platform === "win32") {
+        if (rootAlreadyExited)
+            return false;
+        const killed = await new Promise(resolveKill => {
+            const killer = (0, node_child_process_1.spawn)((0, node_path_1.join)(process.env.SystemRoot ?? "C:\\Windows", "System32", "taskkill.exe"), ["/PID", String(pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" });
+            let done = false;
+            const finish = (ok) => { if (!done) {
+                done = true;
+                clearTimeout(timer);
+                resolveKill(ok);
+            } };
+            const timer = setTimeout(() => {
+                try {
+                    killer.kill();
+                }
+                catch { /* Helper termination is unverified too. */ }
+                killer.unref();
+                finish(false);
+            }, 3000);
+            killer.once("error", () => finish(false));
+            killer.once("close", status => finish(status === 0));
+        });
+        while (killed && !closed() && Date.now() < until)
+            await pause(25);
+        // A helper exit alone is insufficient: require the owned shell's drained close too.
+        return killed && closed();
+    }
+    const groupExists = () => {
+        try {
+            process.kill(-pid, 0);
+            return true;
+        }
+        catch (error) {
+            return error.code !== "ESRCH";
+        }
+    };
+    const send = (signal) => {
+        try {
+            process.kill(-pid, signal);
+        }
+        catch (error) {
+            if (error.code !== "ESRCH")
+                return false;
+        }
+        return true;
+    };
+    if (!send("SIGTERM"))
+        return false;
+    const escalateAt = Date.now() + 250;
+    while (groupExists() && Date.now() < escalateAt)
+        await pause(25);
+    if (groupExists() && !send("SIGKILL"))
+        return false;
+    while ((!closed() || groupExists()) && Date.now() < until)
+        await pause(25);
+    return closed() && !groupExists();
+}
+function pause(ms) { return new Promise(resolvePause => setTimeout(resolvePause, ms)); }
+function errorMessage(error) { return error instanceof Error ? error.message : String(error); }
 function collectProofloopAgentTrace(args) {
     const root = (0, node_path_1.resolve)(args.root ?? process.cwd());
     const evidenceFiles = (0, node_fs_1.existsSync)(args.runDir)

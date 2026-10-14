@@ -90,6 +90,7 @@ import {
   setupProofloopAgentAdapter,
 } from "./agentAdapters";
 import { runProofloopAgentLoop } from "./agentLoop";
+import { repairTimeoutMs } from "./repairDeadline";
 import { codexRunDir, latestProofloopRunDir, readCodexReprompt } from "./codexRelaunch";
 import {
   PROOFLOOP_PROVIDER_IDS,
@@ -179,7 +180,7 @@ function usage(): string {
     "  maturity [--dense|--json|--write] [--target-level 5]   judge agent-era codebase/app maturity and missing layers",
     "  productivity [--write] [--baseline-source <source>]   write wage-equivalent verified productivity receipts and charts",
     "  agents list|setup [id|all]   install/report agent adapters for Codex, Claude Code, and wrapper hosts",
-    "  codex-loop [--dry-run] [--max-attempts 2]   run gate, write repair prompt, optionally relaunch Codex",
+    "  codex-loop [--dry-run] [--max-attempts 2] [--timeout-ms 1800000]   gate and bounded repairs",
     "  codex reprompt|relaunch [run-id]   show or launch the latest Codex repair prompt",
     "  providers setup [id|all]   write provider setup receipts for live integration lanes",
     "  mcp                        start the optional read-only MCP server",
@@ -519,14 +520,17 @@ async function runAgentsCommand(sub: string | undefined, adapter: string | undef
 async function runCodexLoopCommand(options: Record<string, string | boolean>, root: string): Promise<number> {
   try {
     const agentId = parseProofloopAgentAdapterId(str(options.agent) ?? "codex");
-    const result = await runProofloopAgentLoop({
+    const timeoutMs = repairTimeoutMs(options["timeout-ms"] === undefined ? undefined : Number(str(options["timeout-ms"]) ?? NaN));
+    const result = await withRepairCancellation(signal => runProofloopAgentLoop({
       root,
       agentId,
       dryRun: options["dry-run"] === true,
+      timeoutMs,
+      signal,
       ...(str(options.command) !== undefined ? { command: str(options.command)! } : {}),
       ...(options["max-attempts"] !== undefined ? { maxAttempts: Number(str(options["max-attempts"]) ?? NaN) } : {}),
       ...(str(options["run-id"]) !== undefined ? { runId: str(options["run-id"])! } : {}),
-    });
+    }));
     console.log(`proofloop codex-loop: ${result.passed ? "passed" : "needs-repair"} run=${result.runId} attempts=${result.attempts}`);
     console.log(`  runDir=${result.runDir}`);
     if (result.repairPromptPath) console.log(`  repairPrompt=${result.repairPromptPath}`);
@@ -537,34 +541,52 @@ async function runCodexLoopCommand(options: Record<string, string | boolean>, ro
   }
 }
 
-function runCodexCommand(sub: string | undefined, runId: string | undefined, options: Record<string, string | boolean>, root: string): number {
-  if (sub !== "reprompt" && sub !== "relaunch") {
-    console.error("proofloop codex: expected `reprompt` or `relaunch`.");
+async function runCodexCommand(sub: string | undefined, runId: string | undefined, options: Record<string, string | boolean>, root: string): Promise<number> {
+  try {
+    const timeoutMs = repairTimeoutMs(options["timeout-ms"] === undefined ? undefined : Number(str(options["timeout-ms"]) ?? NaN));
+    if (sub !== "reprompt" && sub !== "relaunch") {
+      console.error("proofloop codex: expected `reprompt` or `relaunch`.");
+      return 2;
+    }
+    const runDir = runId ? codexRunDir(root, runId) : latestProofloopRunDir(root);
+    if (!runDir) {
+      console.error("proofloop codex: no .proofloop/runs/<run-id> directory found. Run `npx proofloop codex-loop --dry-run` first.");
+      return 2;
+    }
+    const promptPath = join(runDir, "codex-reprompt.md");
+    const prompt = readCodexReprompt(promptPath);
+    if (!prompt) {
+      console.error(`proofloop codex: no reprompt found at ${promptPath}.`);
+      return 2;
+    }
+    if (sub === "reprompt") {
+      console.log(prompt);
+      return 0;
+    }
+    const result = await withRepairCancellation(signal => launchProofloopAgentAdapter({
+      adapterId: "codex",
+      promptPath,
+      targetDir: root,
+      timeoutMs,
+      signal,
+      ...(str(options.command) !== undefined ? { command: str(options.command)! } : {}),
+    }));
+    console.log(JSON.stringify(result, null, 2));
+    return result.launched && result.status !== "failed" ? 0 : 1;
+  } catch (error) {
+    console.error(`proofloop codex: ${error instanceof Error ? error.message : String(error)}`);
     return 2;
   }
-  const runDir = runId ? codexRunDir(root, runId) : latestProofloopRunDir(root);
-  if (!runDir) {
-    console.error("proofloop codex: no .proofloop/runs/<run-id> directory found. Run `npx proofloop codex-loop --dry-run` first.");
-    return 2;
-  }
-  const promptPath = join(runDir, "codex-reprompt.md");
-  const prompt = readCodexReprompt(promptPath);
-  if (!prompt) {
-    console.error(`proofloop codex: no reprompt found at ${promptPath}.`);
-    return 2;
-  }
-  if (sub === "reprompt") {
-    console.log(prompt);
-    return 0;
-  }
-  const result = launchProofloopAgentAdapter({
-    adapterId: "codex",
-    promptPath,
-    targetDir: root,
-    ...(str(options.command) !== undefined ? { command: str(options.command)! } : {}),
-  });
-  console.log(JSON.stringify(result, null, 2));
-  return result.launched && result.status !== "failed" ? 0 : 1;
+}
+
+/** Only the CLI owns global interruption handlers; library callers pass AbortSignal. */
+async function withRepairCancellation<T>(run: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  const controller = new AbortController();
+  const interrupt = () => controller.abort();
+  const signals: NodeJS.Signals[] = ["SIGINT", "SIGTERM", "SIGHUP"];
+  for (const signal of signals) process.on(signal, interrupt);
+  try { return await run(controller.signal); }
+  finally { for (const signal of signals) process.off(signal, interrupt); }
 }
 
 async function runProvidersCommand(sub: string | undefined, provider: string | undefined, options: Record<string, string | boolean>, root: string): Promise<number> {

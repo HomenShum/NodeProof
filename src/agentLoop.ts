@@ -9,6 +9,7 @@ import {
 } from "./agentAdapters";
 import { writeCodexRelaunchPacket } from "./codexRelaunch";
 import { gateStatePath, runGateCli, type GateState } from "./gate";
+import { repairTimeoutMs } from "./repairDeadline";
 
 export type ProofloopAgentLoopResult = {
   runId: string;
@@ -23,6 +24,8 @@ export async function runProofloopAgentLoop(options: {
   root?: string;
   agentId?: ProofloopAgentAdapterId;
   maxAttempts?: number;
+  timeoutMs?: number;
+  signal?: AbortSignal;
   dryRun?: boolean;
   command?: string;
   runId?: string;
@@ -30,6 +33,7 @@ export async function runProofloopAgentLoop(options: {
   logError?: (line: string) => void;
 }): Promise<ProofloopAgentLoopResult> {
   const root = resolve(options.root ?? process.cwd());
+  const timeoutMs = repairTimeoutMs(options.timeoutMs);
   const agentId = options.agentId ?? "codex";
   const maxAttempts = options.maxAttempts === undefined ? 1 : options.maxAttempts;
   if (!Number.isSafeInteger(maxAttempts) || maxAttempts <= 0) {
@@ -37,6 +41,7 @@ export async function runProofloopAgentLoop(options: {
   }
   const runId = options.runId ?? `gate-${compactTimestamp(new Date())}`;
   const runDir = join(root, ".proofloop", "runs", runId);
+  if (options.signal?.aborted) return { runId, runDir, exitCode: 1, attempts: 0, passed: false };
   mkdirSync(runDir, { recursive: true });
 
   let attempts = 0;
@@ -76,10 +81,12 @@ export async function runProofloopAgentLoop(options: {
         promptPath: repairPromptPath,
         message: "dry run; agent was not launched",
       }
-      : launchProofloopAgentAdapter({
+      : await launchProofloopAgentAdapter({
         adapterId: agentId,
         promptPath: repairPromptPath,
         targetDir: root,
+        timeoutMs,
+        signal: options.signal,
         ...(options.command ? { command: options.command } : {}),
       });
     writeAgentRepairAttemptReceipt({
@@ -94,7 +101,7 @@ export async function runProofloopAgentLoop(options: {
     });
 
     if (runResult.launched) attempts++;
-    if (options.dryRun || !runResult.launched || runResult.status === "failed") {
+    if (options.dryRun || !runResult.launched || runResult.status === "failed" || options.signal?.aborted) {
       return { runId, exitCode: lastExit || 1, attempts, passed: false, runDir, repairPromptPath };
     }
   }

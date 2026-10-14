@@ -51,6 +51,7 @@ const maturity_1 = require("./maturity");
 const productivity_1 = require("./productivity");
 const agentAdapters_1 = require("./agentAdapters");
 const agentLoop_1 = require("./agentLoop");
+const repairDeadline_1 = require("./repairDeadline");
 const codexRelaunch_1 = require("./codexRelaunch");
 const providerSetup_1 = require("./providerSetup");
 const transferCheck_1 = require("./transferCheck");
@@ -134,7 +135,7 @@ function usage() {
         "  maturity [--dense|--json|--write] [--target-level 5]   judge agent-era codebase/app maturity and missing layers",
         "  productivity [--write] [--baseline-source <source>]   write wage-equivalent verified productivity receipts and charts",
         "  agents list|setup [id|all]   install/report agent adapters for Codex, Claude Code, and wrapper hosts",
-        "  codex-loop [--dry-run] [--max-attempts 2]   run gate, write repair prompt, optionally relaunch Codex",
+        "  codex-loop [--dry-run] [--max-attempts 2] [--timeout-ms 1800000]   gate and bounded repairs",
         "  codex reprompt|relaunch [run-id]   show or launch the latest Codex repair prompt",
         "  providers setup [id|all]   write provider setup receipts for live integration lanes",
         "  mcp                        start the optional read-only MCP server",
@@ -450,14 +451,17 @@ async function runAgentsCommand(sub, adapter, options, root) {
 async function runCodexLoopCommand(options, root) {
     try {
         const agentId = (0, agentAdapters_1.parseProofloopAgentAdapterId)(str(options.agent) ?? "codex");
-        const result = await (0, agentLoop_1.runProofloopAgentLoop)({
+        const timeoutMs = (0, repairDeadline_1.repairTimeoutMs)(options["timeout-ms"] === undefined ? undefined : Number(str(options["timeout-ms"]) ?? NaN));
+        const result = await withRepairCancellation(signal => (0, agentLoop_1.runProofloopAgentLoop)({
             root,
             agentId,
             dryRun: options["dry-run"] === true,
+            timeoutMs,
+            signal,
             ...(str(options.command) !== undefined ? { command: str(options.command) } : {}),
             ...(options["max-attempts"] !== undefined ? { maxAttempts: Number(str(options["max-attempts"]) ?? NaN) } : {}),
             ...(str(options["run-id"]) !== undefined ? { runId: str(options["run-id"]) } : {}),
-        });
+        }));
         console.log(`proofloop codex-loop: ${result.passed ? "passed" : "needs-repair"} run=${result.runId} attempts=${result.attempts}`);
         console.log(`  runDir=${result.runDir}`);
         if (result.repairPromptPath)
@@ -469,34 +473,58 @@ async function runCodexLoopCommand(options, root) {
         return 2;
     }
 }
-function runCodexCommand(sub, runId, options, root) {
-    if (sub !== "reprompt" && sub !== "relaunch") {
-        console.error("proofloop codex: expected `reprompt` or `relaunch`.");
+async function runCodexCommand(sub, runId, options, root) {
+    try {
+        const timeoutMs = (0, repairDeadline_1.repairTimeoutMs)(options["timeout-ms"] === undefined ? undefined : Number(str(options["timeout-ms"]) ?? NaN));
+        if (sub !== "reprompt" && sub !== "relaunch") {
+            console.error("proofloop codex: expected `reprompt` or `relaunch`.");
+            return 2;
+        }
+        const runDir = runId ? (0, codexRelaunch_1.codexRunDir)(root, runId) : (0, codexRelaunch_1.latestProofloopRunDir)(root);
+        if (!runDir) {
+            console.error("proofloop codex: no .proofloop/runs/<run-id> directory found. Run `npx proofloop codex-loop --dry-run` first.");
+            return 2;
+        }
+        const promptPath = (0, node_path_1.join)(runDir, "codex-reprompt.md");
+        const prompt = (0, codexRelaunch_1.readCodexReprompt)(promptPath);
+        if (!prompt) {
+            console.error(`proofloop codex: no reprompt found at ${promptPath}.`);
+            return 2;
+        }
+        if (sub === "reprompt") {
+            console.log(prompt);
+            return 0;
+        }
+        const result = await withRepairCancellation(signal => (0, agentAdapters_1.launchProofloopAgentAdapter)({
+            adapterId: "codex",
+            promptPath,
+            targetDir: root,
+            timeoutMs,
+            signal,
+            ...(str(options.command) !== undefined ? { command: str(options.command) } : {}),
+        }));
+        console.log(JSON.stringify(result, null, 2));
+        return result.launched && result.status !== "failed" ? 0 : 1;
+    }
+    catch (error) {
+        console.error(`proofloop codex: ${error instanceof Error ? error.message : String(error)}`);
         return 2;
     }
-    const runDir = runId ? (0, codexRelaunch_1.codexRunDir)(root, runId) : (0, codexRelaunch_1.latestProofloopRunDir)(root);
-    if (!runDir) {
-        console.error("proofloop codex: no .proofloop/runs/<run-id> directory found. Run `npx proofloop codex-loop --dry-run` first.");
-        return 2;
+}
+/** Only the CLI owns global interruption handlers; library callers pass AbortSignal. */
+async function withRepairCancellation(run) {
+    const controller = new AbortController();
+    const interrupt = () => controller.abort();
+    const signals = ["SIGINT", "SIGTERM", "SIGHUP"];
+    for (const signal of signals)
+        process.on(signal, interrupt);
+    try {
+        return await run(controller.signal);
     }
-    const promptPath = (0, node_path_1.join)(runDir, "codex-reprompt.md");
-    const prompt = (0, codexRelaunch_1.readCodexReprompt)(promptPath);
-    if (!prompt) {
-        console.error(`proofloop codex: no reprompt found at ${promptPath}.`);
-        return 2;
+    finally {
+        for (const signal of signals)
+            process.off(signal, interrupt);
     }
-    if (sub === "reprompt") {
-        console.log(prompt);
-        return 0;
-    }
-    const result = (0, agentAdapters_1.launchProofloopAgentAdapter)({
-        adapterId: "codex",
-        promptPath,
-        targetDir: root,
-        ...(str(options.command) !== undefined ? { command: str(options.command) } : {}),
-    });
-    console.log(JSON.stringify(result, null, 2));
-    return result.launched && result.status !== "failed" ? 0 : 1;
 }
 async function runProvidersCommand(sub, provider, options, root) {
     if (sub !== "setup") {
