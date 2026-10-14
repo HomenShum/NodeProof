@@ -4,6 +4,7 @@
 
 ```bash
 npm test                          # pretest builds (tsc), then vitest run
+npm run check                    # tests, then audit runtime AND development dependencies
 npx vitest run tests/gate.test.ts # one file
 npm run test:watch                # watch mode
 npm run proofloop:browser-proof   # the real-Chromium proof of the landing page
@@ -12,19 +13,24 @@ npm run proofloop:wig-review      # Web Interface Guidelines measurements, same 
 node dist/cli.js gate             # the tool's own gate: npm run build && npm test
 ```
 
-Current state at the commit that ships this document: **28 files, 263 tests,
-0 failed**, measured 2026-08-14.
+The 2026-10-14 repair-loop baseline has **35 files, 364 tests, 0 failed**.
+The developer-tool security update reruns this unchanged suite with Vitest
+4.1.11. Read the current run's count: documentation anchors generate cases,
+so adding documentation can change it.
 
 `npm test` builds first — `pretest` runs `npm run build` — because two suites
 spawn the compiled `dist/cli.js` rather than importing TypeScript.
 
-The previous value on this line was 198 and was already stale before the commit
-that corrected it: the parent commit measures **260** on the same machine. All
-three extra cases are that commit's own, because the count is data-driven —
-`walkthrough.test.ts` generates one case per documentation anchor and one per
-markdown file under `docs/` and `promotion/`, and that commit added one anchor
-and two documents. Adding a document to this repository moves this number. Run
-the suite and read it; never assume it.
+`npm run check` and CI audit the full dependency graph because coding agents
+and developers execute the test tools too. Previously, `--omit=dev` excluded
+all installed packages in this zero-runtime-dependency project, while CI's
+install printed known vulnerabilities without failing. An advisory or an
+unavailable audit service now fails the audit step; it is not a clean result.
+
+The patched Vitest 4 line retains the existing Node 20 test environment.
+Vitest 5 modernization remains separate: it requires newer development Node
+and type peers, and must preserve explicit Node 20 consumer proof rather than
+silently raising the CLI's `>=20` runtime floor.
 
 Chromium is a separate install for the browser proof:
 `npx playwright install chromium`.
