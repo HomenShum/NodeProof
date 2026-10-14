@@ -171,30 +171,44 @@ gate against a broken config would quietly prove nothing.
 **Why this exists**
 Everything above is one gate run. This is the loop: run the gate, and if it
 failed, turn the failure into a prompt and hand it to the coding agent to fix,
-up to `maxAttempts`. This is the only place in the repository that starts
-another program that writes code.
+up to `maxAttempts` launches. After each successfully completed repair, run
+the gate again, including after the final allowed repair. A repair's exit zero
+is not proof that the project passes. This is the only place in the repository
+that starts another program that writes code.
 
 **Core code**
 ```ts
-for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-  lastExit = runGateCli({ root, ... });
+let attempts = 0;
+while (true) {
+  const lastExit = runGateCli({ root, ... });
   const verdict = verdictFromGate(runId, readGateState(root), lastExit);
-  if (verdict.passed) return { runId, exitCode: 0, attempts: attempt, passed: true, runDir };
+  if (verdict.passed) return { runId, exitCode: 0, attempts, passed: true, runDir };
+  if (attempts === maxAttempts) return { runId, exitCode: lastExit, attempts, passed: false, runDir };
 
   const prompt = buildAgentRepairPrompt({ adapterId: agentId, verdict, ... });
   writeFileSync(repairPromptPath, prompt, "utf8");
   const runResult = options.dryRun ? { ...notLaunched } : launchProofloopAgentAdapter({ ... });
+  if (runResult.launched) attempts++;
+  if (!runResult.launched || runResult.status === "failed") return { ...failedResult };
 }
 ```
 
 **Input** — repo root, an agent id (`codex`, `claude-code`, …), `maxAttempts`
-(default 1), and `dryRun`.
+(a positive safe integer, default 1), and `dryRun`. Invalid supplied budgets
+are rejected before any gate, agent launch or run artifact is created.
 **Output** — `{ runId, exitCode, attempts, passed, runDir }`, plus files under
-`.proofloop/runs/<run-id>/`: one JSON per gate attempt and one markdown repair
-prompt per failure.
+`.proofloop/runs/<run-id>/`. `attempts` counts launched repair processes, not
+gate observations: initially passing projects and dry runs report zero. The
+existing `gate-attempt-N.json` files number observations (at most budget + 1).
+A repair prompt is written only when preparing an allowed repair; no extra
+prompt or launch follows budget exhaustion.
 **Failure behavior** — `--dry-run` writes the prompt and launches nothing. If
-the agent cannot be launched (not installed, wrong command) the loop stops after
-that attempt and returns the gate's exit code; it never spins.
+the adapter has no command, the count stays zero. A launched process that exits
+nonzero counts once and stops the loop with the gate's failure code. The loop
+does not certify changes from that failed process. Repair launch count is
+bounded; the existing launcher has no wall-clock timeout. Use distinct run IDs
+and isolated project roots for concurrent jobs. Adapter logs and the latest
+repair receipt still overwrite between attempts; gate snapshots are separate.
 **Next** — Step 5, the tools an agent is offered.
 
 ## Step 5 — Tools are registered for the agent to call

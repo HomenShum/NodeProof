@@ -524,7 +524,7 @@ async function runCodexLoopCommand(options: Record<string, string | boolean>, ro
       agentId,
       dryRun: options["dry-run"] === true,
       ...(str(options.command) !== undefined ? { command: str(options.command)! } : {}),
-      ...(num(options["max-attempts"]) !== undefined ? { maxAttempts: num(options["max-attempts"])! } : {}),
+      ...(options["max-attempts"] !== undefined ? { maxAttempts: Number(str(options["max-attempts"]) ?? NaN) } : {}),
       ...(str(options["run-id"]) !== undefined ? { runId: str(options["run-id"])! } : {}),
     });
     console.log(`proofloop codex-loop: ${result.passed ? "passed" : "needs-repair"} run=${result.runId} attempts=${result.attempts}`);
