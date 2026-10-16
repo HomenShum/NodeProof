@@ -38,9 +38,25 @@ const { chromium } = await import("playwright").catch(() => {
   process.exit(1);
 });
 
+/**
+ * Phone variant: node scripts/record-gate-demo.mjs --narrow
+ * Same real runs, replayed on a 648x900 canvas at 32px so the text is still
+ * readable when GitHub scales the image to a ~324 css px phone column (cap
+ * height about 10 css px; the 960px clip lands near 3). Lines are wrapped at
+ * 34 columns on word boundaries (a token longer than a row is split), never
+ * inside FAILED / PASSED; the characters are unchanged, and the script aborts
+ * if re-joining the wrapped rows does not give back every transcript line.
+ * Output: docs/media/gate-demo-narrow.gif (+ docs/media/gate-demo-narrow-transcript.txt,
+ * the fresh run it replays; the wide clip and its transcript are not touched).
+ * NARROW_WRAP_JSON=<file> also dumps the wrapped rows for an external check.
+ */
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const OUT_GIF = path.join(ROOT, "docs/media/gate-demo.gif");
-const OUT_TXT = path.join(ROOT, "docs/media/gate-demo-transcript.txt");
+const NARROW = process.argv.includes("--narrow");
+const OUT_GIF = path.join(ROOT, NARROW ? "docs/media/gate-demo-narrow.gif" : "docs/media/gate-demo.gif");
+const OUT_TXT = path.join(
+  ROOT,
+  NARROW ? "docs/media/gate-demo-narrow-transcript.txt" : "docs/media/gate-demo-transcript.txt",
+);
 
 // --- 1. Throwaway fixture: a tiny app whose test is honest and whose code is wrong.
 const fixture = await fs.mkdtemp(path.join(os.tmpdir(), "proofloop-demo-"));
@@ -95,6 +111,141 @@ lines.push({ t: "out", s: "" });
 push(gatePass);
 await fs.mkdir(path.dirname(OUT_TXT), { recursive: true });
 await fs.writeFile(OUT_TXT, lines.map((l) => l.s).join("\n") + "\n");
+
+// --- 3b. Phone variant (--narrow): wrap, replay on a 648x900 canvas, build the GIF, stop.
+const COLS = 34;
+const IND = "  ";
+// Greedy word wrap. A soft break drops the spaces at the break (kept in `join`),
+// a token longer than a row is split (join ""), so rows can always be re-joined exactly.
+function wrapLine(s) {
+  if (s.length <= COLS) return [{ text: s, join: "" }];
+  const rows = [];
+  let cur = "";
+  let pend = "";
+  let join = "";
+  const flush = (next) => {
+    rows.push({ text: cur, join });
+    cur = IND;
+    join = next;
+  };
+  for (const tok of s.match(/ +|[^ ]+/g)) {
+    if (tok[0] === " ") {
+      pend += tok;
+      continue;
+    }
+    if (cur.length + pend.length + tok.length <= COLS) {
+      cur += pend + tok;
+      pend = "";
+      continue;
+    }
+    if (cur.trim()) flush(pend);
+    else cur += pend;
+    pend = "";
+    let w = tok;
+    while (cur.length + w.length > COLS) {
+      const room = COLS - cur.length;
+      cur += w.slice(0, room);
+      w = w.slice(room);
+      flush("");
+    }
+    cur += w;
+  }
+  rows.push({ text: cur + pend, join });
+  return rows;
+}
+if (NARROW) {
+  const esc = (x) => x.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const rows = [];
+  for (const [src, l] of lines.entries()) {
+    const w = wrapLine(l.s);
+    const back = w.map((r, i) => (i ? r.join + r.text.slice(IND.length) : r.text)).join("");
+    if (back !== l.s) throw new Error(`wrap changed a transcript line: ${JSON.stringify(l.s)}`);
+    for (const word of ["FAILED", "PASSED"]) {
+      const n = (x) => x.split(word).length - 1;
+      if (n(l.s) !== w.reduce((a, r) => a + n(r.text), 0)) throw new Error(`${word} split across rows: ${JSON.stringify(l.s)}`);
+    }
+    for (const r of w) rows.push({ ...r, src, t: l.t, verdict: /^proofloop gate: (FAILED|PASSED)$/.test(l.s) });
+  }
+  if (process.env.NARROW_WRAP_JSON) {
+    await fs.writeFile(
+      process.env.NARROW_WRAP_JSON,
+      JSON.stringify({ cols: COLS, indent: IND.length, lines: lines.map((l) => l.s), rows }, null, 1),
+    );
+  }
+  const W = 648, H = 900, FONT = 32, PITCH = 45, PAD = 24;
+  const visible = Math.floor((H - 2 * PAD) / PITCH);
+  const rowHtml = (r) => {
+    const cls = r.t + (/FAILED/.test(r.text) ? " fail" : "") + (/PASSED/.test(r.text) ? " pass" : "");
+    return `<div class="ln ${cls}">${esc(r.text) || "&nbsp;"}</div>`;
+  };
+  const page = `<!doctype html><meta charset="utf-8">
+<style>
+  body { margin: 0; background: #0d1117; }
+  #term { box-sizing: border-box; width: ${W}px; height: ${H}px; overflow: hidden; padding: ${PAD}px;
+    font: ${FONT}px/${PITCH}px Consolas, "Cascadia Code", monospace; color: #c9d1d9; white-space: pre; }
+  .ln { display: none; height: ${PITCH}px; }
+  .cmd { color: #7ee787; font-weight: 600; }
+  .fail { color: #ff7b72; font-weight: 600; }
+  .pass { color: #58a6ff; font-weight: 600; }
+  .diff- { color: #ff7b72; }
+  .diff\\+ { color: #7ee787; }
+</style>
+<div id="term">${rows.map(rowHtml).join("")}</div>
+<script>
+  window.reveal = (n) => document.querySelectorAll(".ln").forEach((el, i) => {
+    el.style.display = i < n && i >= n - ${visible} ? "block" : "none";
+  });
+</script>`;
+  // 3 rows per frame, but a frame always ends on a verdict row; verdict frames and the last frame are held.
+  const PER_FRAME = 3, FRAME_S = 0.36, HOLD_S = 2.4;
+  const marks = [];
+  let since = 0;
+  rows.forEach((r, i) => {
+    if (++since === PER_FRAME || r.verdict || i === rows.length - 1) {
+      marks.push(i + 1);
+      since = 0;
+    }
+  });
+  const frameDir = await fs.mkdtemp(path.join(os.tmpdir(), "gate-frames-"));
+  const browser = await chromium.launch();
+  const pg = await browser.newPage({ viewport: { width: W, height: H } });
+  await pg.setContent(page);
+  // rows are display:none until revealed, so show them all once to measure each row's real width
+  const overflow = await pg.evaluate(() =>
+    [...document.querySelectorAll(".ln")].filter((el) => {
+      el.style.display = "block";
+      return el.scrollWidth > el.clientWidth;
+    }).length,
+  );
+  if (overflow) throw new Error(`${overflow} wrapped row(s) are wider than the canvas`);
+  const list = ["ffconcat version 1.0"];
+  for (const [k, n] of marks.entries()) {
+    await pg.evaluate((m) => window.reveal(m), n);
+    const f = `f${String(k).padStart(4, "0")}.png`;
+    await pg.screenshot({ path: path.join(frameDir, f) });
+    const hold = rows[n - 1].verdict || k === marks.length - 1;
+    list.push(`file ${f}`, `duration ${hold ? HOLD_S : FRAME_S}`);
+  }
+  await browser.close();
+  await fs.writeFile(path.join(frameDir, "list.txt"), list.join("\n") + "\n");
+  await fs.mkdir(path.dirname(OUT_GIF), { recursive: true });
+  execSync(
+    `ffmpeg -y -f concat -safe 0 -i list.txt -vf "split[s0][s1];[s0]palettegen=max_colors=16:stats_mode=full[p];[s1][p]paletteuse=dither=none" -fps_mode vfr -final_delay ${HOLD_S * 100} "${OUT_GIF}"`,
+    { cwd: frameDir, stdio: "pipe" },
+  );
+  await fs.rm(frameDir, { recursive: true, force: true });
+  await fs.rm(fixture, { recursive: true, force: true });
+  const bytes = (await fs.stat(OUT_GIF)).size;
+  console.log(`gate refused (exit 1) then passed (exit 0); ${rows.length} wrapped rows, ${marks.length} frames`);
+  console.log(`clip: ${path.relative(ROOT, OUT_GIF)} (${bytes} bytes)`);
+  console.log(`transcript: ${path.relative(ROOT, OUT_TXT)}`);
+  // no larger than the 960px clip it sits beside (1,451,386 bytes)
+  if (bytes > 1_451_386) {
+    console.error("FAILED: narrow gif is larger than the wide one");
+    process.exit(1);
+  }
+  process.exit(0);
+}
 
 // --- 4. Frame-by-frame replay: reveal one line per frame at 8 fps, with holds
 // after the refusal and the pass so both verdicts are readable.
