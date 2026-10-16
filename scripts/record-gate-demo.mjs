@@ -26,17 +26,6 @@
  *
  * Run: node scripts/record-gate-demo.mjs
  * Output: docs/media/gate-demo.gif (+ docs/media/gate-demo-transcript.txt)
- *
- * Phone variant: node scripts/record-gate-demo.mjs --narrow
- * Same real runs, replayed on a 648x900 canvas at 32px so the text is still
- * readable when GitHub scales the image to a ~324 css px phone column (cap
- * height about 10 css px; the 960px clip lands near 3). Lines are wrapped at
- * 34 columns on word boundaries (a token longer than a row is split), never
- * inside FAILED / PASSED; the characters are unchanged, and the script aborts
- * if re-joining the wrapped rows does not give back every transcript line.
- * Output: docs/media/gate-demo-narrow.gif (+ docs/media/gate-demo-narrow-transcript.txt,
- * the fresh run it replays; the wide clip and its transcript are not touched).
- * NARROW_WRAP_JSON=<file> also dumps the wrapped rows for an external check.
  */
 import { spawnSync, execSync } from "node:child_process";
 import { promises as fs } from "node:fs";
@@ -49,6 +38,18 @@ const { chromium } = await import("playwright").catch(() => {
   process.exit(1);
 });
 
+/**
+ * Phone variant: node scripts/record-gate-demo.mjs --narrow
+ * Same real runs, replayed on a 648x900 canvas at 32px so the text is still
+ * readable when GitHub scales the image to a ~324 css px phone column (cap
+ * height about 10 css px; the 960px clip lands near 3). Lines are wrapped at
+ * 34 columns on word boundaries (a token longer than a row is split), never
+ * inside FAILED / PASSED; the characters are unchanged, and the script aborts
+ * if re-joining the wrapped rows does not give back every transcript line.
+ * Output: docs/media/gate-demo-narrow.gif (+ docs/media/gate-demo-narrow-transcript.txt,
+ * the fresh run it replays; the wide clip and its transcript are not touched).
+ * NARROW_WRAP_JSON=<file> also dumps the wrapped rows for an external check.
+ */
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const NARROW = process.argv.includes("--narrow");
 const OUT_GIF = path.join(ROOT, NARROW ? "docs/media/gate-demo-narrow.gif" : "docs/media/gate-demo.gif");
@@ -209,11 +210,14 @@ if (NARROW) {
   const browser = await chromium.launch();
   const pg = await browser.newPage({ viewport: { width: W, height: H } });
   await pg.setContent(page);
-  const overflow = await pg.evaluate(() => {
-    const t = document.getElementById("term");
-    return t.scrollWidth > t.clientWidth;
-  });
-  if (overflow) throw new Error("a wrapped row is wider than the canvas");
+  // rows are display:none until revealed, so show them all once to measure each row's real width
+  const overflow = await pg.evaluate(() =>
+    [...document.querySelectorAll(".ln")].filter((el) => {
+      el.style.display = "block";
+      return el.scrollWidth > el.clientWidth;
+    }).length,
+  );
+  if (overflow) throw new Error(`${overflow} wrapped row(s) are wider than the canvas`);
   const list = ["ffconcat version 1.0"];
   for (const [k, n] of marks.entries()) {
     await pg.evaluate((m) => window.reveal(m), n);
