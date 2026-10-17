@@ -38,7 +38,7 @@ looks like it worked while proving nothing about this commit. Every command
 below runs the working tree. If you installed NodeProof from npm instead of
 cloning it, read every `node dist/cli.js` below as `npx proofloop`.
 
-![node dist/cli.js init then gate in a throwaway project: the gate FAILS (exit 1) while add() is wrong, and PASSES (exit 0) only after the one-line fix](docs/media/gate-demo-narrow.gif)
+<img src="docs/media/gate-demo-narrow.gif" width="432" alt="node dist/cli.js init then gate in a throwaway project: the gate FAILS (exit 1) while add() is wrong, and PASSES (exit 0) only after the one-line fix">
 
 *Scripted terminal session, replayed frame-by-frame — every output line is verbatim captured stdout from real `node dist/cli.js` runs of this working tree in a throwaway project (only the temp path is shortened, and lines are wrapped at 34 columns so the text stays readable on a phone; transcript of this clip: [`docs/media/gate-demo-narrow-transcript.txt`](docs/media/gate-demo-narrow-transcript.txt); the earlier full-width recording is kept as [`docs/media/gate-demo.gif`](docs/media/gate-demo.gif) with its [transcript](docs/media/gate-demo-transcript.txt)). Regenerate: `node scripts/record-gate-demo.mjs --narrow`.*
 
