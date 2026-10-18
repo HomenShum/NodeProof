@@ -16,8 +16,8 @@ describe("narrow gate-demo wrap: every row fits 34 columns", () => {
   it("accepts transcript-shaped lines: prose, a path, a long unbroken token, a short indent", () => {
     const lines = [
       "$ node dist/cli.js gate   # the gate decides whether \u201cdone\u201d is true",
-      "  state: ~/tiny-app\.proofloop\gate-state.json",
-      "    at Object.<anonymous> (~/tiny-app\test.js:3:8)",
+      "  state: ~/tiny-app\\.proofloop\\gate-state.json",
+      "    at Object.<anonymous> (~/tiny-app\\test.js:3:8)",
       "      " + "y".repeat(60),
       "",
       "  ",

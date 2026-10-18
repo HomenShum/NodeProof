@@ -145,7 +145,7 @@ if (NARROW) {
     }
   });
   // The terminal scrolls: at most VISIBLE rows show at once. The canvas is exactly as tall as the
-  // fullest frame (plus padding), so no frame leaves a blank band under its text.
+  // fullest frame (plus padding), so a full window leaves no blank band; frames still filling up are shorter than the canvas.
   const W = 648, FONT = 32, PITCH = 34, PAD = 12, VISIBLE = 12;
   const visible = Math.min(VISIBLE, rows.length);
   const tallest = Math.max(...marks.map((n) => Math.min(n, visible)));
