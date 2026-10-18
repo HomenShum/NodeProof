@@ -23,13 +23,13 @@ proofloop gate: running check "npm test" -> npm test
 > tiny-app@1.0.0 test
 > node test.js
 
-proofloop gate: check "npm test" FAILED (2640ms, exit 1)
+proofloop gate: check "npm test" FAILED (876ms, exit 1)
 proofloop gate: FAILED
   state: ~/tiny-app\.proofloop\gate-state.json
-  ts:    2026-10-16T15:09:56.875Z
+  ts:    2026-10-18T03:45:01.655Z
   source: npm-test-fallback
   checks:
-    - [FAIL] npm test (2640ms)
+    - [FAIL] npm test (876ms)
 
 node:assert:150
   throw new AssertionError(obj);
@@ -70,11 +70,11 @@ proofloop gate: running check "npm test" -> npm test
 > node test.js
 
 test ok: add(2,3)=5
-proofloop gate: check "npm test" PASSED (2760ms, exit 0)
+proofloop gate: check "npm test" PASSED (926ms, exit 0)
 proofloop gate: PASSED
   state: ~/tiny-app\.proofloop\gate-state.json
-  ts:    2026-10-16T15:10:00.090Z
+  ts:    2026-10-18T03:45:02.726Z
   source: npm-test-fallback
   checks:
-    - [pass] npm test (2760ms)
+    - [pass] npm test (926ms)
 

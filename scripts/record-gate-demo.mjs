@@ -40,7 +40,7 @@ const { chromium } = await import("playwright").catch(() => {
 
 /**
  * Phone variant: node scripts/record-gate-demo.mjs --narrow
- * Same real runs, replayed on a 648x900 canvas at 32px so the text is still
+ * Same real runs, replayed at 32px on a 648 px wide canvas, as tall as its fullest frame, so the text is still
  * readable when GitHub scales the image to a ~324 css px phone column (cap
  * height about 10 css px; the 960px clip lands near 3). Lines are wrapped at
  * 34 columns on word boundaries (a token longer than a row is split), never
@@ -50,6 +50,7 @@ const { chromium } = await import("playwright").catch(() => {
  * the fresh run it replays; the wide clip and its transcript are not touched).
  * NARROW_WRAP_JSON=<file> also dumps the wrapped rows for an external check.
  */
+import { COLS, IND, wrapLine, assertRowsFit } from "./narrow-wrap.mjs";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const NARROW = process.argv.includes("--narrow");
 const OUT_GIF = path.join(ROOT, NARROW ? "docs/media/gate-demo-narrow.gif" : "docs/media/gate-demo.gif");
@@ -112,47 +113,7 @@ push(gatePass);
 await fs.mkdir(path.dirname(OUT_TXT), { recursive: true });
 await fs.writeFile(OUT_TXT, lines.map((l) => l.s).join("\n") + "\n");
 
-// --- 3b. Phone variant (--narrow): wrap, replay on a 648x900 canvas, build the GIF, stop.
-const COLS = 34;
-const IND = "  ";
-// Greedy word wrap. A soft break drops the spaces at the break (kept in `join`),
-// a token longer than a row is split (join ""), so rows can always be re-joined exactly.
-function wrapLine(s) {
-  if (s.length <= COLS) return [{ text: s, join: "" }];
-  const rows = [];
-  let cur = "";
-  let pend = "";
-  let join = "";
-  const flush = (next) => {
-    rows.push({ text: cur, join });
-    cur = IND;
-    join = next;
-  };
-  for (const tok of s.match(/ +|[^ ]+/g)) {
-    if (tok[0] === " ") {
-      pend += tok;
-      continue;
-    }
-    if (cur.length + pend.length + tok.length <= COLS) {
-      cur += pend + tok;
-      pend = "";
-      continue;
-    }
-    if (cur.trim()) flush(pend);
-    else cur += pend;
-    pend = "";
-    let w = tok;
-    while (cur.length + w.length > COLS) {
-      const room = COLS - cur.length;
-      cur += w.slice(0, room);
-      w = w.slice(room);
-      flush("");
-    }
-    cur += w;
-  }
-  rows.push({ text: cur + pend, join });
-  return rows;
-}
+// --- 3b. Phone variant (--narrow): wrap, replay on a canvas fitted to its tallest frame, build the GIF, stop.
 if (NARROW) {
   const esc = (x) => x.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const rows = [];
@@ -164,6 +125,7 @@ if (NARROW) {
       const n = (x) => x.split(word).length - 1;
       if (n(l.s) !== w.reduce((a, r) => a + n(r.text), 0)) throw new Error(`${word} split across rows: ${JSON.stringify(l.s)}`);
     }
+    assertRowsFit(w.map((r) => r.text), l.s); // every row.length <= COLS, whitespace-only and indented rows included
     for (const r of w) rows.push({ ...r, src, t: l.t, verdict: /^proofloop gate: (FAILED|PASSED)$/.test(l.s) });
   }
   if (process.env.NARROW_WRAP_JSON) {
@@ -172,8 +134,22 @@ if (NARROW) {
       JSON.stringify({ cols: COLS, indent: IND.length, lines: lines.map((l) => l.s), rows }, null, 1),
     );
   }
-  const W = 648, H = 900, FONT = 32, PITCH = 45, PAD = 24;
-  const visible = Math.floor((H - 2 * PAD) / PITCH);
+  // 3 rows per frame, but a frame always ends on a verdict row; verdict frames and the last frame are held.
+  const PER_FRAME = 3, FRAME_S = 0.36, HOLD_S = 2.4;
+  const marks = [];
+  let since = 0;
+  rows.forEach((r, i) => {
+    if (++since === PER_FRAME || r.verdict || i === rows.length - 1) {
+      marks.push(i + 1);
+      since = 0;
+    }
+  });
+  // The terminal scrolls: at most VISIBLE rows show at once. The canvas is exactly as tall as the
+  // fullest frame (plus padding), so a full window leaves no blank band; frames still filling up are shorter than the canvas.
+  const W = 648, FONT = 32, PITCH = 34, PAD = 12, VISIBLE = 12;
+  const visible = Math.min(VISIBLE, rows.length);
+  const tallest = Math.max(...marks.map((n) => Math.min(n, visible)));
+  const H = 2 * PAD + tallest * PITCH;
   const rowHtml = (r) => {
     const cls = r.t + (/FAILED/.test(r.text) ? " fail" : "") + (/PASSED/.test(r.text) ? " pass" : "");
     return `<div class="ln ${cls}">${esc(r.text) || "&nbsp;"}</div>`;
@@ -196,16 +172,6 @@ if (NARROW) {
     el.style.display = i < n && i >= n - ${visible} ? "block" : "none";
   });
 </script>`;
-  // 3 rows per frame, but a frame always ends on a verdict row; verdict frames and the last frame are held.
-  const PER_FRAME = 3, FRAME_S = 0.36, HOLD_S = 2.4;
-  const marks = [];
-  let since = 0;
-  rows.forEach((r, i) => {
-    if (++since === PER_FRAME || r.verdict || i === rows.length - 1) {
-      marks.push(i + 1);
-      since = 0;
-    }
-  });
   const frameDir = await fs.mkdtemp(path.join(os.tmpdir(), "gate-frames-"));
   const browser = await chromium.launch();
   const pg = await browser.newPage({ viewport: { width: W, height: H } });
@@ -221,6 +187,7 @@ if (NARROW) {
   const list = ["ffconcat version 1.0"];
   for (const [k, n] of marks.entries()) {
     await pg.evaluate((m) => window.reveal(m), n);
+    if (await pg.evaluate(() => term.scrollHeight > term.clientHeight)) throw new Error(`frame ${k}: rows are taller than the canvas`);
     const f = `f${String(k).padStart(4, "0")}.png`;
     await pg.screenshot({ path: path.join(frameDir, f) });
     const hold = rows[n - 1].verdict || k === marks.length - 1;
